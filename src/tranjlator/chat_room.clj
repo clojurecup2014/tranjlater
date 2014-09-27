@@ -2,11 +2,9 @@
   (:refer-clojure :exclude [join])
   (:require [clojure.core.async :as a :refer [go go-loop chan <! >!]]
             [tranjlator.messages :as msg]
+            [tranjlator.protocols :as p]
             [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]))
-
-(defprotocol MsgSink
-  (send-msg [this msg sender]))
 
 (defn send-history
   [user history]
@@ -76,7 +74,7 @@
     (a/<!! process-chan)
     (dissoc this :pub-chan :process-chan))
 
-  MsgSink
+  p/MsgSink
   (send-msg [this msg sender]
     (a/put! pub-chan (assoc msg :sender sender))))
 

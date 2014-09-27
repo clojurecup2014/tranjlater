@@ -2,7 +2,8 @@
   (:use clojure.test tranjlator.chat-room)
   (:require [clojure.core.async :as a :refer [go-loop chan <! >!]]
             [com.stuartsierra.component :as component]
-            [tranjlator.messages :as msg]))
+            [tranjlator.messages :as msg]
+            [tranjlator.protocols :as p]))
 
 (defn test-chat
   [user msg]
@@ -20,7 +21,7 @@
   (testing "When a user joins, it receives the chat history."
     (let [chat-room (-> (->chat-room ["hi" "bye!"]) component/start)
           user (chan)]
-      (send-msg chat-room (msg/->user-join "User!") user)
+      (p/send-msg chat-room (msg/->user-join "User!") user)
       (is (= "hi" (a/<!! user)))
       (is (= "bye!" (a/<!! user)))))
 
@@ -29,7 +30,7 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users (butlast users))})
                         component/start)
           join-message (msg/->user-join (:name user3))]
-      (send-msg chat-room join-message (:chan user3))
+      (p/send-msg chat-room join-message (:chan user3))
       (is (= join-message (dissoc (a/<!! (:chan user1)) :sender)))
       (is (= join-message (dissoc (a/<!! (:chan user2)) :sender))))))
 
@@ -39,7 +40,7 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
           part-msg (msg/->user-part (:name user1))]
 
-      (send-msg chat-room part-msg (:chan user1))
+      (p/send-msg chat-room part-msg (:chan user1))
 
       (is (= part-msg (dissoc (a/<!! (:chan user2)) :sender)))
       (is (= part-msg (dissoc (a/<!! (:chan user3)) :sender))))))
@@ -51,7 +52,7 @@
           chats ["hi!" "what?!?" "I love lamp!"]]
 
       (doseq [[c u] (map vector chats users)]
-        (send-msg chat-room (test-chat u c) (:chan u)))
+        (p/send-msg chat-room (test-chat u c) (:chan u)))
 
       (are [x] (and (= (:content x) (first chats)))
            (a/<!! (:chan user1))

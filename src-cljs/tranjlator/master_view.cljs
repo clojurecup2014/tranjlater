@@ -6,7 +6,13 @@
 
 (defn send-message-click [sender-ch text owner app]
   (do
-    (post-message sender-ch text)
+    (post-message sender-ch
+                  {:topic :original
+                   :language "foo"
+                   :content text
+                   :content-sha "foo"
+                   :original-sha "foo"
+                   :user-name "me"})
     (clear-text owner)))
 
 (defn users-view [app owner]

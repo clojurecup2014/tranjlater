@@ -31,6 +31,7 @@
         (make-socket listener-ch sender-ch)
         (go (loop []
               (let [msg (<! listener-ch)]
+                (println "RECVD:" msg)
                 ;; do something cool with the message
                 (recur))))))
     om/IRender

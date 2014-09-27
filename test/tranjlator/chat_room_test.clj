@@ -55,13 +55,16 @@
         (send-msg chat-room (test-chat u c) (:chan u)))
 
       (are [x] (and (= (:content x) (first chats)))
+           (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
 
       (are [x] (= (:content x) (second chats))
            (a/<!! (:chan user1))
+           (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
 
       (are [x] (= (:content x) (nth chats 2))
            (a/<!! (:chan user1))
-           (a/<!! (:chan user2))))))
+           (a/<!! (:chan user2))
+           (a/<!! (:chan user3))))))

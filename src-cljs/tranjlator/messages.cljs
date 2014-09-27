@@ -1,5 +1,5 @@
 (ns tranjlator.messages)
 
 (defn login-message [user-name]
-  (.log js/console "here")
-  {:user-name user-name})
+  {:topic :user-join
+   :user-name user-name})

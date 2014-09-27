@@ -31,11 +31,11 @@
         (make-socket listener-ch sender-ch)
         (go (loop []
               (let [msg (<! listener-ch)
-                    topic (get-in msg [:message :topic])]
+                    topic (:topic msg)]
                 (cond
-                 (= :original topic) (om/transact! app :original (fn [col] (conj col (:message msg))))
-                 (= :user-join topic) (om/transact! app :users (fn [col] (conj col (get-in msg [:message :user-name]))))
-                 :default (println "RECVD:" msg))
+                 (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
+                 (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
+                 :default (println "RECVD:" msg "type: " (keys msg)))
                 (recur))))))
     om/IRender
     (render [_]

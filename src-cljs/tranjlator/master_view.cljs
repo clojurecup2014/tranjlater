@@ -20,14 +20,17 @@
     om/IRender
     (render [this]
       (apply dom/ul nil
-             (map (fn [item] (dom/li nil item)) app)))))
+             (map (fn [item] (dom/li nil item)) (sort app))))))
+
+(defn format-chat [{:keys [user-name content]}]
+  (str user-name ": " content ))
 
 (defn chat-view [app owner]
   (reify
     om/IRender
     (render [this]
       (apply dom/ul nil
-             (map (fn [item] (dom/li nil (:content item))) app)))))
+             (map (fn [item] (dom/li nil (format-chat item))) app)))))
 
 (defn master-view [app owner]
   (reify

@@ -5,14 +5,8 @@
             [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]))
 
-(defprotocol UserChat
-  (chat [this msg]))
-
-(defprotocol UserJoin
-  (join [this user-name channel]))
-
-(defprotocol UserPart
-  (part [this user-name channel]))
+(defprotocol MsgSink
+  (send-msg [this msg sender]))
 
 (defn send-history
   [user history]
@@ -21,16 +15,17 @@
 
 (def ^:const +user-default-topics+ #{:original :user-join :user-part})
 
-(defn filter-own-chats
+(defn remove-own-chats
   [user-name]
   (remove #(= user-name (:user-name %))))
 
 (defn sub-user
   [pub user-name user-chan topics]
-  (let [filtering-chan (chan 10 (filter-own-chats user-name))]
-    (a/pipe filtering-chan user-chan)
+  (let [removing-chan (chan 10 (remove-own-chats user-name))]
+    (a/pipe removing-chan user-chan)
     (doseq [t +user-default-topics+]
-      (a/sub pub t filtering-chan))))
+      (a/sub pub t removing-chan))
+    removing-chan))
 
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan]
@@ -41,26 +36,27 @@
           pub (a/pub pub-chan :topic)
           user-part (chan 10)
           user-join (chan 10)
-          chat (chan 10)]
+          chat (chan 10)
+          initial-users (reduce (fn [acc [name chan]] (assoc acc name (sub-user pub name chan +user-default-topics+))) {} initial-users)
+          initial-history (or initial-history [])]
 
       (a/sub pub :user-join user-join)
       (a/sub pub :user-part user-part)
       (a/sub pub :original chat)
       
-      (doseq [[name chan] initial-users]
-        (sub-user pub name chan +user-default-topics+))
-      
       (assoc this
         :pub-chan pub-chan
+        :initial-history initial-history
+        :initial-users initial-users
         :process-chan
-        (go-loop [users (or initial-users {}) history (or initial-history [])]
+        (go-loop [users initial-users
+                  history initial-history]
           (a/alt!
-            user-join ([{:keys [chan user-name] :as msg}]
+            user-join ([{:keys [sender user-name] :as msg}]
                          (log/infof "JOIN: %s" (pr-str msg))
                          (if-not (nil? msg)
-                           (do (send-history chan history)
-                               (sub-user pub user-name chan +user-default-topics+)
-                               (recur (assoc users user-name chan) history))
+                           (do (send-history sender history)
+                               (recur (assoc users user-name (sub-user pub user-name sender +user-default-topics+)) history))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
 
             user-part ([{:keys [user-name] :as msg}]
@@ -73,28 +69,18 @@
                            (log/warn "ChatRoom shutting down due to \"user-leave\" channel closing")))
 
             chat ([msg]
-                    (log/info "CHAT: %s" (pr-str msg))
+                    (log/infof "CHAT: %s" (pr-str msg))
                     (if-not (nil? msg)
                       (recur users (conj history msg))
                       (log/warn "ChatRoom shutting down due to \"chat\" channel closing"))))))))
   (stop [this]
     (a/close! pub-chan)
     (a/<!! process-chan)
-    (dissoc this :ctrl-chan :process-chan))
+    (dissoc this :pub-chan :process-chan))
 
-  UserChat
-  (chat [this msg]
-    (a/put! pub-chan msg))
-
-  UserJoin
-  (join [this join-msg chan]
-    (log/info "pubbing:" join-msg)
-    (a/put! pub-chan (assoc join-msg :chan chan)))
-
-  UserPart
-  (part [this join-msg chan]
-    (a/put! pub-chan join-msg))
-  )
+  MsgSink
+  (send-msg [this msg sender]
+    (a/put! pub-chan (assoc msg :sender sender))))
 
 (defn ->chat-room
   ([]

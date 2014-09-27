@@ -20,7 +20,7 @@
   (testing "When a user joins, it receives the chat history."
     (let [chat-room (-> (->chat-room ["hi" "bye!"]) component/start)
           user (chan)]
-      (join chat-room (msg/->user-join "User!") user)
+      (send-msg chat-room (msg/->user-join "User!") user)
       (is (= "hi" (a/<!! user)))
       (is (= "bye!" (a/<!! user)))))
 
@@ -29,9 +29,9 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users (butlast users))})
                         component/start)
           join-message (msg/->user-join (:name user3))]
-      (join chat-room join-message (:chan user3))
-      (is (= join-message (dissoc (a/<!! (:chan user1)) :chan)))
-      (is (= join-message (dissoc (a/<!! (:chan user2)) :chan))))))
+      (send-msg chat-room join-message (:chan user3))
+      (is (= join-message (dissoc (a/<!! (:chan user1)) :sender)))
+      (is (= join-message (dissoc (a/<!! (:chan user2)) :sender))))))
 
 (deftest test-user-part
   (testing "When a user leaves, the other users receive a part message."
@@ -39,10 +39,10 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
           part-msg (msg/->user-part (:name user1))]
 
-      (part chat-room part-msg (:chan user1))
+      (send-msg chat-room part-msg (:chan user1))
 
-      (is (= part-msg (a/<!! (:chan user2))))
-      (is (= part-msg (a/<!! (:chan user3)))))))
+      (is (= part-msg (dissoc (a/<!! (:chan user2)) :sender)))
+      (is (= part-msg (dissoc (a/<!! (:chan user3)) :sender))))))
 
 (deftest test-user-chat
   (testing "When a user chats only the other users see it."
@@ -50,9 +50,9 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
           chats ["hi!" "what?!?" "I love lamp!"]]
 
-      (chat chat-room (test-chat user1 (first chats)))
-      (chat chat-room (test-chat user2 (second chats)))
-      (chat chat-room (test-chat user3 (nth chats 2)))
+      (doseq [[c u] (map vector chats users)]
+        (println "chat:" c "user:" u)
+        (send-msg chat-room (test-chat u c) (:chan u)))
 
       (are [x] (and (= (:content x) (first chats)))
            (a/<!! (:chan user2))

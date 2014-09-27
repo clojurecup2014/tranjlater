@@ -1,7 +1,11 @@
 (ns tranjlator.sockets
   (:require [cljs.core.async :refer [<! >!] :as a]
-            [chord.client :refer [ws-ch]])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+            [chord.client :refer [ws-ch]]
+            [goog.events :as evt]
+            [cljs.reader :refer [read-string]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop go]])
+  (:import [goog.net WebSocket]
+           [goog.net.WebSocket EventType]))
 
 (def +ws-url+ "/wsapp/")
 
@@ -20,9 +24,27 @@
        (recur)))))
 
 (defn make-socket [listener-ch sender-ch]
-  (go
-   (let [{:keys [ws-channel error]} (<! (ws-ch (str "ws://" (.. js/window -location -host) +ws-url+)))]
-     (when ws-channel
-       (do
-         (handle-incoming listener-ch ws-channel)
-         (handle-outgoing sender-ch ws-channel))))))
+  (let [ws (doto (WebSocket.)
+             (.open (str "ws://" (.. js/window -location -host) +ws-url+)))]
+
+    (.dir js/console ws)
+    (.dir js/console EventType)
+    (evt/listen ws (.-CLOSED EventType)  #(do (a/close! listener-ch)
+                                              (a/close! sender-ch)))
+    (evt/listen ws (.-OPENED EventType)  #(println "WS Connected"))
+    (evt/listen ws (.-MESSAGE EventType) #(a/put! listener-ch (read-string (.-message %))))
+    (evt/listen ws (.-ERROR EventType )  #(println "WS Error:" %))
+
+    (go-loop []
+      (when-some [msg (<! sender-ch)]
+        (.send ws (pr-str msg))
+        (recur))
+      (a/close! listener-ch)
+      (.close ws)
+      (.disposeInternal ws))
+
+    ;; (when ws-channel
+    ;;   (do
+    ;;     (handle-incoming listener-ch ws-channel)
+    ;;     (handle-outgoing sender-ch ws-channel)))
+    ))

@@ -17,7 +17,8 @@
                  [http-kit "2.1.16"]
                  [ring-cors "0.1.0"]]
   :cljsbuild {:source-paths ["src-cljs"]
-              :compiler {
-                         :output-to "main.js"
+              :compiler {:output-to "main.js"
                          :optimizations :whitespace
-                         :pretty-print true}})
+                         :pretty-print true}}
+  :profiles {:uberjar {:aot :all
+                       :main tranjlator.core}})

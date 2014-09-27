@@ -46,7 +46,7 @@
                              (recur))
                          (do (a/close! listener-ch)
                              (.close ws)
-                             (.disposeInternal ws)))))))
+                             (.dispose ws)))))))
 
     ;; (when ws-channel
     ;;   (do

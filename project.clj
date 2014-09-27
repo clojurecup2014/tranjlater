@@ -6,7 +6,7 @@
   :plugins [[com.palletops/uberimage "0.3.0"]
             [lein-cljsbuild "1.0.3"]]
   :dependencies [[org.clojure/clojure "1.7.0-alpha2"]
-                 [org.clojure/clojurescript "0.0-2322"]
+                 [org.clojure/clojurescript "0.0-2322"]                                  
                  [enlive "1.1.5"]
                  [sablono "0.2.18"]
                  [clj-time "0.8.0"]
@@ -21,4 +21,6 @@
                          :optimizations :whitespace
                          :pretty-print true}}
   :profiles {:uberjar {:aot :all
-                       :main tranjlator.core}})
+                       :main tranjlator.core}
+             :dev {:source-paths ["dev"]
+                   :dependencies [[org.clojure/tools.namespace "0.2.7"]]}})

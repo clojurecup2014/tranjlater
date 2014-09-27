@@ -20,7 +20,8 @@
   (testing "When a user joins, it receives the chat history."
     (let [chat-room (-> (->chat-room ["hi" "bye!"]) component/start)
           user (chan)]
-      (send-msg chat-room (msg/->user-join "User!") user)
+      (send-msg chat-room (msg/->user-join "User") user)
+      (is (= "User" (:user-name (a/<!! user))))
       (is (= "hi" (a/<!! user)))
       (is (= "bye!" (a/<!! user)))))
 

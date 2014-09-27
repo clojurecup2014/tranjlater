@@ -1,0 +1,15 @@
+---
+build_environment: Ubuntu 13.10
+language: clojure
+lein: lein2
+
+before_install:
+  - shippable_retry wget -qO- https://get.docker.io/ | sudo sh
+  - sudo service docker start
+
+script:
+  - lein clean
+  - lein test
+after_success: 
+  - docker status
+  - lein uberimage

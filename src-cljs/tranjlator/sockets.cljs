@@ -3,7 +3,7 @@
             [chord.client :refer [ws-ch]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-(def +ws-url+ "/wsapp")
+(def +ws-url+ "/wsapp/")
 
 (defn handle-incoming [listener-ch server-ch]
   (go

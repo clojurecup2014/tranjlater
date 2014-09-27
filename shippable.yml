@@ -3,6 +3,9 @@ build_environment: Ubuntu 13.10
 language: clojure
 lein: lein2
 
+before_install:
+  - shippable_retry wget -qO- https://get.docker.io/ | sudo sh
+
 script:
   - lein clean
   - lein test

@@ -12,8 +12,9 @@
         user-write (chan 10)]
     (log/info "new websocket")
     (ws/on-receive websocket #(a/put! user-read %))
-    (ws/on-close websocket #(do (a/close! user-read)
-                                (a/close! user-write)))
+    (ws/on-close websocket (fn [& _]
+                             (a/close! user-read)
+                             (a/close! user-write)))
 
     (go-loop []
       (let [msg (edn/read-string (<! user-read))]

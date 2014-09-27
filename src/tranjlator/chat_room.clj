@@ -20,8 +20,7 @@
 (defn sub-user
   [pub user-name user-chan topics]
   (doseq [t +user-default-topics+]
-    (a/sub pub t user-chan))
-  user-chan)
+    (a/sub pub t user-chan)))
 
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan]
@@ -33,13 +32,15 @@
           user-part (chan 10)
           user-join (chan 10)
           chat (chan 10)
-          initial-users (reduce (fn [acc [name chan]] (assoc acc name (sub-user pub name chan +user-default-topics+))) {} initial-users)
           initial-history (or initial-history [])]
 
       (a/sub pub :user-join user-join)
       (a/sub pub :user-part user-part)
       (a/sub pub :original chat)
-      
+
+      (doseq [[name chan] initial-users]
+        (sub-user pub name chan +user-default-topics+))
+
       (assoc this
         :pub-chan pub-chan
         :initial-history initial-history
@@ -52,7 +53,8 @@
                          (log/infof "JOIN: %s" (pr-str msg))
                          (if-not (nil? msg)
                            (do (send-history sender history)
-                               (recur (assoc users user-name (sub-user pub user-name sender +user-default-topics+)) history))
+                               (sub-user pub user-name sender +user-default-topics+)
+                               (recur (assoc users user-name sender) history))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
 
             user-part ([{:keys [user-name] :as msg}]

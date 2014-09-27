@@ -60,6 +60,8 @@
                          (log/infof "JOIN: %s" (pr-str msg))
                          (if-not (nil? msg)
                            (do (>! sender msg)
+                               (doseq [[name _] users]
+                                 (>! sender (msg/->user-join name)))
                                (send-history sender history)
                                (recur (assoc users user-name (sub-user pub user-name sender +user-default-topics+)) history))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))

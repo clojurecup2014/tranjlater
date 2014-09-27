@@ -22,9 +22,14 @@
 (defn send-join
   [users name]
   (let [join-message (msg/->user-join name)]
-    (go (doseq [u users]
-          (log/info "sending join to %s" u )
-          (>! u join-message)))))
+    (go (doseq [[name channel] users]
+          (>! channel join-message)))))
+
+(defn send-chat
+  [users chat-msg]
+  (go (doseq [[name channel] users]
+        (log/infof "sending %s to user %s" chat-msg name)
+        (>! channel chat-msg))))
 
 (defrecord ChatRoom
     [initial-users initial-history ctrl-chan process-chan]
@@ -38,14 +43,16 @@
       (assoc this
         :ctrl-chan ctrl-chan
         :process-chan
-        (go-loop [users (or initial-users #{}) history (or initial-history [])]
-          (let [msg (<! ctrl-chan)]
+        (go-loop [users (or initial-users {}) history (or initial-history [])]
+          (let [{:keys [payload] :as msg} (<! ctrl-chan)]
             (when-not (nil? msg)
               (log/info "msg:" msg)
               (case (:op msg)
                 :join (do (send-history (:channel msg) history)
                           (send-join users (:name msg))
-                          (recur (conj users (:channel msg)) history))
+                          (recur (assoc users (:name msg) (:channel msg)) history))
+                :chat (do (send-chat (dissoc users (:user-name payload)) payload)
+                          (recur users (conj history payload)))
                 (recur users history))))))))
   (stop [this]
     (a/close! ctrl-chan)
@@ -54,7 +61,7 @@
 
   UserChat
   (chat [this msg]
-    (a/put! ctrl-chan msg))
+    (a/put! ctrl-chan {:op :chat :payload msg}))
 
   UserJoin
   (join [this user-name chan]

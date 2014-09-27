@@ -1,9 +1,12 @@
 (ns tranjlator.core
-  (:require [org.httpit.server :refer [run-server]])
+  (:require [org.httpkit.server :refer [run-server]]
+            [compojure.core :refer [defroutes GET]])
   (:gen-class))
 
+(defroutes routes
+  (GET "/" [] "Hello World!"))
 
 (defn -main
   "I don't do a whole lot."
-  [& args]
-  (println  "Hello, World!"))
+  [& [port]]
+  (run-server routes {:port (or port 80)}))

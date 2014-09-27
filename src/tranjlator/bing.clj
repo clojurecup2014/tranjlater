@@ -98,15 +98,14 @@
 
   (def translator (-> (->translator :de out-chan) component/start))
 
-  (do
-    (let [out-chan (chan 1)]
-      (a/>!! (:ctrl-chan translator) {:topic "original"
-                                      :language :en
-                                      :content "Hello, World!"
-                                      :content-sha "foo"
-                                      :original-sha "foo"
-                                      :user-name "bar"})
-      (a/<!! out-chan)))
+  (let [out-chan (chan 1)]
+    (a/>!! (:ctrl-chan translator) {:topic "original"
+                                    :language :en
+                                    :content "Hello, World!"
+                                    :content-sha "foo"
+                                    :original-sha "foo"
+                                    :user-name "bar"})
+    (a/<!! out-chan))
 
   )
 

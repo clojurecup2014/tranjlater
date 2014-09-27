@@ -51,7 +51,6 @@
           chats ["hi!" "what?!?" "I love lamp!"]]
 
       (doseq [[c u] (map vector chats users)]
-        (println "chat:" c "user:" u)
         (send-msg chat-room (test-chat u c) (:chan u)))
 
       (are [x] (and (= (:content x) (first chats)))

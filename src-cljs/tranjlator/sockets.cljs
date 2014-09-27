@@ -19,10 +19,9 @@
        (>! server-ch msg)
        (recur)))))
 
-
 (defn make-socket [listener-ch sender-ch]
   (go
-   (let [{:keys [ws-channel error]} (<! (ws-ch (str "ws://" (.-host window/location) +ws-url+)))]
+   (let [{:keys [ws-channel error]} (<! (ws-ch (str "ws://" (.. js/window -location -host) +ws-url+)))]
      (when ws-channel
        (do
          (handle-incoming listener-ch ws-channel)

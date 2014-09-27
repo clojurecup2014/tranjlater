@@ -3,7 +3,7 @@
             [chord.client :refer [ws-ch]]
             [goog.events :as evt]
             [cljs.reader :refer [read-string]])
-  (:require-macros [cljs.core.async.macros :refer [go-loop go]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop go alt!]])
   (:import [goog.net WebSocket]
            [goog.net.WebSocket EventType]))
 
@@ -36,12 +36,17 @@
     (evt/listen ws (.-ERROR EventType )  #(println "WS Error:" %))
 
     (go-loop []
-      (when-some [msg (<! sender-ch)]
-        (.send ws (pr-str msg))
-        (recur))
-      (a/close! listener-ch)
-      (.close ws)
-      (.disposeInternal ws))
+      (let [timeout (a/timeout 15000)]
+        (alt!
+          timeout (do ;; ping
+                    (recur))
+          sender-ch ([msg]
+                       (if-not (nil? msg)
+                         (do (.send ws (pr-str msg))
+                             (recur))
+                         (do (a/close! listener-ch)
+                             (.close ws)
+                             (.disposeInternal ws)))))))
 
     ;; (when ws-channel
     ;;   (do

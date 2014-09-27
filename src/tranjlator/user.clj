@@ -19,12 +19,14 @@
 
     (go-loop []
       (let [msg (edn/read-string (<! user-read))]
-        (when-not (nil? msg)
-          (chat/send-msg chat-room msg user-write)
-          (recur))))
+        (if-not (nil? msg)
+          (do (chat/send-msg chat-room msg user-write)
+              (recur))
+          (ws/close websocket))))
 
     (go-loop []
       (let [msg (<! user-write)]
-        (when-not (nil? msg)
-          (ws/send! websocket (pr-str (dissoc msg :sender)))
-          (recur))))))
+        (if-not (nil? msg)
+          (do (ws/send! websocket (pr-str (dissoc msg :sender)))
+              (recur))
+          (ws/close websocket))))))

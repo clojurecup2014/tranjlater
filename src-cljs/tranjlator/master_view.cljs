@@ -12,7 +12,7 @@
                    :content text
                    :content-sha "foo"
                    :original-sha "foo"
-                   :user-name "me"})
+                   :user-name (:user-name @app)})
     (clear-text owner)))
 
 (defn users-view [app owner]

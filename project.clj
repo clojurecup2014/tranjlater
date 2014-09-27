@@ -28,7 +28,7 @@
                  :optimizations :whitespace}}]}
   :profiles {:uberjar {:aot :all
                        :main tranjlator.core
-                       :prep-tasks [["cljsbuild" "clean"] ["cljsbuild" "once"]]
-}
+                       :hooks [leiningen.cljsbuild]}
+
              :dev {:source-paths ["dev"]
                    :dependencies [[org.clojure/tools.namespace "0.2.7"]]}})

@@ -15,7 +15,7 @@
 (defroutes routes
   (GET "/" [] (resp/resource-response "public/html/index.html"))
   (resources "/")
-  (GET "/messages" req
+  (GET "/wsapp" req
        (with-channel req websocket
          (if-not (ws/websocket? websocket)
            (ws/send! websocket "This is not a websocket! Go away!")

@@ -15,9 +15,9 @@
 
 (enable-console-print!)
 
-(def app-state (atom {:original [sample-source]
+(def app-state (atom {:original []
                       :translated [sample-translation]
-                      :users sample-users
+                      :users []
                       :user-name nil
                       :listener-ch (chan)
                       :sender-ch (chan)}))
@@ -30,15 +30,21 @@
             sender-ch (:sender-ch app)]
         (make-socket listener-ch sender-ch)
         (go (loop []
-              (let [msg (<! listener-ch)]
-                (println "RECVD:" msg)
-                ;; do something cool with the message
+              (let [msg (<! listener-ch)
+                    topic (get-in msg [:message :topic])]
+                (cond
+                 (= :original topic) (om/transact! app :original (fn [col] (conj col (:message msg))))
+                 (= :user-join topic) (om/transact! app :users (fn [col] (conj col (get-in msg [:message :user-name]))))
+                 :default (println "RECVD:" msg))
                 (recur))))))
     om/IRender
     (render [_]
-      (if (empty? (:user-name app))
-        (om/build signin-view app)
-        (om/build master-view app)))))
+      (dom/div #js {:className "container"}
+               (dom/div {:className "row"}
+                        (dom/h2 nil "Tranjlator"))
+               (if (empty? (:user-name app))
+                 (om/build signin-view app)
+                 (om/build master-view app))))))
 
 (om/root
  view-picker

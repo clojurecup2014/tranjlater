@@ -1,0 +1,3 @@
+docker_auth: "{{ vaulted_docker_auth }}"
+docker_email: "{{ vaulted_docker_email }}"
+

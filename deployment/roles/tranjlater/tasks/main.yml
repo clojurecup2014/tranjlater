@@ -1,0 +1,28 @@
+---
+- name: clojurecup user
+  user: name=clojurecup comment="Clojure Cup Judges" group=docker home=/home/clojurecup
+
+- name: ensure clojurecup .ssh dir
+  file: path=/home/clojurecup/.ssh owner=clojurecup mode=0700 state=directory
+
+- name: clojurecup authorized_keys
+  copy: src=authorized_keys/clojurecup dest=/home/clojurecup/.ssh/authorized_keys owner=clojurecup mode=0600
+
+- name: dkr user
+  user: name=dkr comment="Docker" group=docker home=/home/dkr
+
+- name: ensure dkr .ssh dir
+  file: path=/home/dkr/.ssh owner=dkr mode=0700 state=directory
+
+- name: jenkins dkr ssh key
+  copy: src=authorized_keys/dkr dest=/home/dkr/.ssh/authorized_keys owner=dkr mode=0600
+
+- name: dkr .dockercfg
+  template: src=dockercfg.j2 dest=/home/dkr/.dockercfg owner=dkr group=docker mode=0600
+
+- name: docker-py
+  pip: name=docker-py
+
+- name: docker nginx autoproxy
+  docker: ports=80:80 image=jwilder/nginx-proxy volumes=/var/run/docker.sock:/tmp/docker.sock
+  #docker run -d -p 80:80 -v /var/run/docker.sock:/tmp/docker.sock -t jwilder/nginx-proxy

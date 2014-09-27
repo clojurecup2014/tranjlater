@@ -3,10 +3,11 @@
             [om.core :as om :include-macros true])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-(defn check-for-enter [e owner {:keys [text sender-ch]} app click-fn]
+(defn check-for-enter [e owner {:keys [text] :as state} app click-fn]
   (when (or (= 13 (.-keyCode e))
             (= 13 (.-which e)))
-    (click-fn sender-ch text owner app)))
+    (let [sender-ch (:sender-ch @app)]
+      (click-fn sender-ch text owner app))))
 
 (defn clear-text [owner]
   (om/set-state! owner :text ""))

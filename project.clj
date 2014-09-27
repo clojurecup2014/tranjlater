@@ -15,6 +15,8 @@
                  [cheshire  "5.3.1"]
                  [org.clojure/data.xml "0.0.8"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
+                 [com.taoensso/timbre "3.3.1"]
+                 [com.stuartsierra/component "0.2.2"]
                  [om "0.7.3"]
                  [http-kit "2.1.16"]
                  [ring-cors "0.1.0"]]

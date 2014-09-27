@@ -5,7 +5,7 @@
 
 (defn ->chat
   [language content sha user-name]
-  {:topic "original"
+  {:topic :original
    :language language
    :content content
    :content-sha sha
@@ -14,12 +14,12 @@
 
 (defn ->user-join
   [user-name]
-  {:topic "user-join"
+  {:topic :user-join
    :user-name user-name})
 
-(defn ->user-leave
+(defn ->user-part
   [user-name]
-  {:topic "user-leave"
+  {:topic :user-part
    :user-name user-name})
 
 

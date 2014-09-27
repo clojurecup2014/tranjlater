@@ -19,57 +19,81 @@
   (go (doseq [h history]
         (>! user h))))
 
-(defn send-join
-  [users name]
-  (let [join-message (msg/->user-join name)]
-    (go (doseq [[name channel] users]
-          (>! channel join-message)))))
+(def ^:const +user-default-topics+ #{:original :user-join :user-part})
 
-(defn send-chat
-  [users chat-msg]
-  (go (doseq [[name channel] users]
-        (log/infof "sending %s to user %s" chat-msg name)
-        (>! channel chat-msg))))
+(defn filter-own-chats
+  [user-name]
+  (remove #(= user-name (:user-name %))))
+
+(defn sub-user
+  [pub user-name user-chan topics]
+  (let [filtering-chan (chan 10 (filter-own-chats user-name))]
+    (a/pipe filtering-chan user-chan)
+    (doseq [t +user-default-topics+]
+      (a/sub pub t filtering-chan))))
 
 (defrecord ChatRoom
-    [initial-users initial-history ctrl-chan process-chan]
+    [initial-users initial-history pub-chan process-chan]
 
   component/Lifecycle
   (start [this]
-    (let [ctrl-chan (chan 1000)
-          pub-chan (chan)
-          pub (a/pub pub-chan :topic 100)]
+    (let [pub-chan (chan 1000)
+          pub (a/pub pub-chan :topic)
+          user-part (chan 10)
+          user-join (chan 10)
+          chat (chan 10)]
 
+      (a/sub pub :user-join user-join)
+      (a/sub pub :user-part user-part)
+      (a/sub pub :original chat)
+      
+      (doseq [[name chan] initial-users]
+        (sub-user pub name chan +user-default-topics+))
+      
       (assoc this
-        :ctrl-chan ctrl-chan
+        :pub-chan pub-chan
         :process-chan
         (go-loop [users (or initial-users {}) history (or initial-history [])]
-          (let [{:keys [payload] :as msg} (<! ctrl-chan)]
-            (when-not (nil? msg)
-              (log/info "msg:" msg)
-              (case (:op msg)
-                :join (do (send-history (:channel msg) history)
-                          (send-join users (:name msg))
-                          (recur (assoc users (:name msg) (:channel msg)) history))
-                :chat (do (send-chat (dissoc users (:user-name payload)) payload)
-                          (recur users (conj history payload)))
-                (recur users history))))))))
+          (a/alt!
+            user-join ([{:keys [chan user-name] :as msg}]
+                         (log/infof "JOIN: %s" (pr-str msg))
+                         (if-not (nil? msg)
+                           (do (send-history chan history)
+                               (sub-user pub user-name chan +user-default-topics+)
+                               (recur (assoc users user-name chan) history))
+                           (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
+
+            user-part ([{:keys [user-name] :as msg}]
+                         (log/infof "PART: %s" (pr-str msg))
+                         (if-not (nil? msg)
+                           (do (when-let [chan (get users user-name)]
+                                 (doseq [t +user-default-topics+]
+                                   (a/unsub pub t chan)))
+                               (recur (dissoc users user-name) history))
+                           (log/warn "ChatRoom shutting down due to \"user-leave\" channel closing")))
+
+            chat ([msg]
+                    (log/info "CHAT: %s" (pr-str msg))
+                    (if-not (nil? msg)
+                      (recur users (conj history msg))
+                      (log/warn "ChatRoom shutting down due to \"chat\" channel closing"))))))))
   (stop [this]
-    (a/close! ctrl-chan)
+    (a/close! pub-chan)
     (a/<!! process-chan)
     (dissoc this :ctrl-chan :process-chan))
 
   UserChat
   (chat [this msg]
-    (a/put! ctrl-chan {:op :chat :payload msg}))
+    (a/put! pub-chan msg))
 
   UserJoin
-  (join [this user-name chan]
-    (a/put! ctrl-chan {:op :join :name user-name :channel chan}))
+  (join [this join-msg chan]
+    (log/info "pubbing:" join-msg)
+    (a/put! pub-chan (assoc join-msg :chan chan)))
 
   UserPart
-  (part [this user-name chan]
-    (a/put! ctrl-chan {:op :part :name user-name :channel chan}))
+  (part [this join-msg chan]
+    (a/put! pub-chan join-msg))
   )
 
 (defn ->chat-room

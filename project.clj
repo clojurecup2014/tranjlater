@@ -12,6 +12,8 @@
                  [clj-time "0.8.0"]
                  [compojure "1.1.8"]
                  [jarohen/chord "0.4.2" :exclusions [org.clojure/clojure]]
+                 [cheshire  "5.3.1"]
+                 [org.clojure/data.xml "0.0.8"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [om "0.7.3"]
                  [http-kit "2.1.16"]

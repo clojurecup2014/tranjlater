@@ -30,7 +30,9 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users (butlast users))})
                         component/start)
           join-message (msg/->user-join (:name user3))]
+
       (p/send-msg chat-room join-message (:chan user3))
+
       (is (= join-message (dissoc (a/<!! (:chan user1)) :sender)))
       (is (= join-message (dissoc (a/<!! (:chan user2)) :sender))))))
 

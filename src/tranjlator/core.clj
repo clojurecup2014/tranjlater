@@ -2,8 +2,11 @@
   (:require [org.httpkit.server :refer [run-server]]
             [compojure.core :refer [defroutes GET]]
             [compojure.route :refer [resources]]
-            [ring.util.response :as resp])
+            [ring.util.response :as resp]
+            [taoensso.timbre :as log])
   (:gen-class))
+
+
 
 (defroutes routes
   (GET "/" [] (resp/resource-response "public/html/index.html"))
@@ -11,6 +14,5 @@
   )
 
 (defn -main
-  "I don't do a whole lot."
   [& [port]]
   (run-server routes {:port (or port 80)}))

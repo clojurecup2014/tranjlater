@@ -23,13 +23,7 @@
   [pub user-name user-chan topics]
   (doseq [t +user-default-topics+]
     (a/sub pub t user-chan))
-  user-chan
-
-  ;; (let [removing-chan (chan 10 (remove-own-chats user-name))]
-  ;; (a/pipe removing-chan user-chan)
-  ;; (a/sub pub t removing-chan)
-  ;; removing-chan)
-  )
+  user-chan)
 
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan]

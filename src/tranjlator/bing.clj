@@ -5,7 +5,8 @@
             [clojure.data.xml :as xml]
             [taoensso.timbre  :as log]
             [com.stuartsierra.component :as component]
-            [clojure.core.async :as a :refer [<! go go-loop chan >!]]))
+            [clojure.core.async :as a :refer [<! go go-loop chan >!]]
+            [clojure.core.async.impl.protocols :as impl]))
 
 (def +creds+
   {:client-id "clojure-cup-tranjlator"
@@ -24,38 +25,42 @@
   "creds contains keys: [:client-id :client-secret]"
   ([] (request-access-token +creds+))
   ([creds]
-   (http/post "https://datamarket.accesscontrol.windows.net/v2/OAuth2-13"
-              {:headers {"content-type" "application/x-www-form-urlencoded"}
-               :form-params {:scope "http://api.microsofttranslator.com"
-                             :grant_type "client_credentials"
-                             :client_id     (:client-id     creds)
-                             :client_secret (:client-secret creds)}})))
+     (let [result-chan (chan 1 (map (fn [{:keys [status body] :as res}]
+                                      (json/parse-string body true))))]
+       (http/post "https://datamarket.accesscontrol.windows.net/v2/OAuth2-13"
+                  {:headers {"content-type" "application/x-www-form-urlencoded"}
+                   :form-params {:scope "http://api.microsofttranslator.com"
+                                 :grant_type "client_credentials"
+                                 :client_id     (:client-id     creds)
+                                 :client_secret (:client-secret creds)}}
+                  #(a/put! result-chan %))
+       result-chan)))
 
 (defn access-token
   ([] (access-token +creds+))
   ([creds]
-     (let [{:keys [access_token expires_in] :as token}
-           (-> @(request-access-token creds)
-               :body
-               (json/parse-string true))]
-
-       {:token access_token
-        :expires (+ (now) (sec->msec (Long/parseLong expires_in)))})))
+     (go (let [{:keys [access_token expires_in] :as token} (<! (request-access-token creds))]
+           {:token access_token
+            :expires (+ (now) (sec->msec (Long/parseLong expires_in)))}))))
 
 (defn translate!
   ([text from to]
-   (translate! (:token (access-token)) text from to))
+     (translate! (access-token) text from to))
   ([access-token text from to]
-     (let [{:keys [status body] :as res}
-           @(http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
-                      {:headers {"Authorization" (str "Bearer " access-token)}
-                       :query-params {:text text
-                                      :from (name from)
-                                      :to   (name to)}})]
-    (do (log/info "status:" status)   
-     (case status
-       400 res
-       200 (-> body xml/parse-str :content first))))))
+     (log/info "here")
+     (let [result-chan (chan 1 (map (fn [{:keys [status body] :as res}]
+                                      (case status
+                                        400 res
+                                        200 (-> body xml/parse-str :content first)))))]
+       (go (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
+                     {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
+                                                                 (:token (<! access-token))
+                                                                 access-token))}
+                      :query-params {:text text
+                                     :from (name from)
+                                     :to   (name to)}}
+                     #(a/put! result-chan %)))
+       result-chan)))
 
 
 
@@ -67,30 +72,43 @@
     (let [ctrl-chan (chan 1000)]
       (assoc this
         :ctrl-chan ctrl-chan
-        :work-chan (go-loop [token (access-token api-creds)]
+        :work-chan (go-loop [token (<! (access-token api-creds))]
                      (when-some [msg (<! ctrl-chan)]
-                       (log/info "msg:" msg)
-                       (let [token (if (expired? token) (access-token api-creds) token)]
-                         (a/put! out-chan (translate! (:token token)
+                       (let [token (if (expired? token) (<! (access-token api-creds)) token)]
+                         (>! out-chan (<! (translate! (:token token)
                                                       (:content msg)
                                                       (:language msg)
-                                                      (:language this)))
+                                                      (:language this))))
                          (recur token)))))))
 
   (stop [this]
     (a/close! ctrl-chan)
     (a/<!!    work-chan)
-    (dissoc this :ctrl-chan :work-chan)))
+    (dissoc this :ctrl-chan :work-chan :out-chan)))
 
-(declare +langs+)
 (defn ->translator
   ([language out-chan]
      (->translator +creds+ language out-chan))
   ([api-creds language out-chan]
-     (component/start (->Translator api-creds (name language) nil nil out-chan))))
+     (->Translator api-creds (name language) nil nil out-chan)))
 
 (comment
-  (translate! "Hello, World." :en :de))
+  (a/<!! (access-token))
+  (a/<!! (translate! "Hello, World." :en :de))
+
+  (def translator (-> (->translator :de out-chan) component/start))
+
+  (do
+    (let [out-chan (chan 1)]
+      (a/>!! (:ctrl-chan translator) {:topic "original"
+                                      :language :en
+                                      :content "Hello, World!"
+                                      :content-sha "foo"
+                                      :original-sha "foo"
+                                      :user-name "bar"})
+      (a/<!! out-chan)))
+
+  )
 
 ;; unused
 (def +langs+

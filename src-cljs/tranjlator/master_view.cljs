@@ -19,15 +19,23 @@
   (reify
     om/IRender
     (render [this]
-      (apply dom/ul nil
-             (map (fn [item] (dom/li nil item)) app)))))
+      (dom/div #js {:className "col-md-2"}
+               (dom/h4 nil "Users")
+               (apply dom/ul nil
+                      (map (fn [item] (dom/li nil item)) (sort app)))))))
 
-(defn chat-view [app owner]
+(defn format-chat [{:keys [user-name content]}]
+  (str user-name ": " content ))
+
+(defn chat-view [app owner opts]
   (reify
-    om/IRender
-    (render [this]
-      (apply dom/ul nil
-             (map (fn [item] (dom/li nil (:content item))) app)))))
+    om/IRenderState
+    (render-state [this state]
+      (let [label (om/get-state owner :label)]
+        (dom/div #js {:className "col-md-5"}
+                 (dom/h4 nil label)
+                 (apply dom/ul nil
+                        (map (fn [item] (dom/li nil (format-chat item))) app)))))))
 
 (defn master-view [app owner]
   (reify
@@ -37,22 +45,16 @@
     om/IRenderState
     (render-state [this {:keys [text] :as state}]
       (let [sender-ch (:sender-ch app)]
-        (dom/div #js {:className "container"}
-                 (dom/h3 nil "Enter Chat stuff")
-                 (dom/div #js {:className "form-horizontal"}
-                          (dom/div nil
-                                   (dom/div nil
-                                            (om/build users-view (:users app)))
-                                   (dom/div nil
-                                            (om/build chat-view (:original app)))
-                                   (dom/div nil
-                                            (om/build chat-view (:translated app))))
-                          (dom/div #js {:className "form-group"}
-                                   (dom/input #js {:className "form-control" :type "text"
-                                                   :value text
-                                                   :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
-                                                   :onChange #(text-entry % owner state)}))
-                          (dom/div #js {:className "col-xs-offset-2 col-xs-10"}
-                                   (dom/button #js {:type "button" :className "button"
-                                                    :onClick (fn [e] (send-message-click sender-ch text owner app))}
-                                               "click me"))))))))
+        (dom/div nil
+                 (om/build users-view (:users app))
+                 (om/build chat-view (:original app) {:init-state {:label "Original"}})
+                 (om/build chat-view (:translated app) {:init-state {:label "Translated"}})
+                 (dom/div #js {:className "form-group col-md-8 col-md-offset-2"}
+                          (dom/input #js {:className "form-control" :type "text"
+                                          :value text
+                                          :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
+                                          :onChange #(text-entry % owner state)}))
+                 (dom/div #js {:className "col-xs-offset-2 col-xs-10"}
+                          (dom/button #js {:type "button" :className "button"
+                                           :onClick (fn [e] (send-message-click sender-ch text owner app))}
+                                      "Enter")))))))

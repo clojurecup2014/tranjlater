@@ -39,9 +39,12 @@
                 (recur))))))
     om/IRender
     (render [_]
-      (if (empty? (:user-name app))
-        (om/build signin-view app)
-        (om/build master-view app)))))
+      (dom/div #js {:className "container"}
+               (dom/div {:className "row"}
+                        (dom/h2 nil "Tranjlator"))
+               (if (empty? (:user-name app))
+                 (om/build signin-view app)
+                 (om/build master-view app))))))
 
 (om/root
  view-picker

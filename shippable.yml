@@ -9,4 +9,6 @@ before_install:
 script:
   - lein clean
   - lein test
-after_success: lein uberimage
+after_success: 
+  - docker status
+  - lein uberimage

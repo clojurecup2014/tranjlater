@@ -11,6 +11,3 @@
     - security
     - tranjlater
 
-  vars_files:
-    - vaulted_vars.yml
-

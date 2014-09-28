@@ -12,3 +12,7 @@
 .list-group-item {
     padding: 7px 6px;
 }
+
+.out-of-date {
+    color: gray;
+}

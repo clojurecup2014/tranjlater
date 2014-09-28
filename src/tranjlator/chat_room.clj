@@ -163,7 +163,7 @@
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users
-                                    (concat history [expr-msg result-msg])
+                                    (conj history expr-msg result-msg)
                                     translators
                                     cookie)))
                          (log/warn "ChatRoom shutting down due to \"clojure\" channel closing"))))))))

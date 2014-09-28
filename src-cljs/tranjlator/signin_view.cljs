@@ -15,6 +15,10 @@
     om/IInitState
     (init-state [_]
       {:text ""})
+    om/IDidMount
+    (did-mount [_]
+      (let [txtbox (.getElementById js/document "user-name")]
+        (.focus txtbox)))
     om/IRenderState
     (render-state [this {:keys [text] :as state}]
       (let [sender-ch (:sender-ch app)]
@@ -22,7 +26,7 @@
                 (dom/div #js {:className "form-horizontal"}
                          (dom/div #js {:className "form-group"}
                                   (dom/input #js {:className "form-control" :type "text"
-                                                  :value text
+                                                  :value text :id "user-name"
                                                   :onKeyPress (fn [e] (check-for-enter e owner state app login-click))
                                                   :onChange (fn [e] (text-entry e owner state))}))
                          (dom/div #js {:className "col-xs-offset-2 col-xs-10"}

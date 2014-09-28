@@ -1,8 +1,12 @@
-docker_auth: "{{ vaulted_docker_auth }}"
-docker_email: "{{ vaulted_docker_email }}"
 app_image_name: colinrymer/tranjlater
 app_tag: latest
 app_vhost: tranjlater.clojurecup.com
 app_websockets_path: wsapp
 app_container_name: webapp
 app_image_name_and_tag: "{{ app_image_name }}:{{ app_tag }}"
+sudoers_user: clojurecup
+clojure_cup_commands:
+  - judge
+  - save
+  - tag
+  - dockerps

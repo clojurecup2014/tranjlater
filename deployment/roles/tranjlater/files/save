@@ -1,0 +1,3 @@
+#!/bin/bash
+
+docker save -o tranjlater.tar colinrymer/tranjlater:latest

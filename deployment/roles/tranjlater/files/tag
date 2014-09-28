@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+  echo "Usage: tag [REGISTRYHOST/][USERNAME/]NAME[:TAG]"
+  echo "Tags colinrymer/tranjlater:latest to your repo."
+  exit 1
+fi
+
+docker tag colinrymer/tranjlater:latest $1
+docker push $1
+

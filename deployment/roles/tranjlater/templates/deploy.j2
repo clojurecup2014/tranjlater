@@ -14,4 +14,5 @@ docker run \
   -p 127.0.0.1::80 \
   -e VIRTUAL_HOST={{ app_vhost }} \
   -e NGINX_WEBSOCKETS_PATH={{ app_websockets_path }} \
+  -e DATOMIC_URI=datomic:free://datomic:4334 \
   {{ app_image_name }}

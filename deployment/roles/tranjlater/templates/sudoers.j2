@@ -1,0 +1,5 @@
+{% for command in clojure_cup_commands %}
+  {{ sudoers_user }} {{ ansible_hostname }} = (root) NOPASSWD: /usr/bin/{{ command }}
+{% endfor %}
+
+{{ sudoers_user }} {{ ansible_hostname }} = (root) NOPASSWD: /usr/bin/which

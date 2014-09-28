@@ -18,6 +18,7 @@
 (def app-state (atom {:original []
                       :translated []
                       :users []
+                      :chat-hisory []
                       :user-name nil
                       :dissappointed-user nil
                       :listener-ch (chan)

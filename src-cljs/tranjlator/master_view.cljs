@@ -36,12 +36,14 @@
 (defn send-message-click [sender-ch text owner app]
   (do
     (let [sha (-> text .toLowerCase hash hex-string)]
-      (post-message sender-ch
-                    (assoc (command text)
-                      :user-name (:user-name @app)
-                      :language (keyword (:writing-language @app))
-                      :original-sha sha
-                      :content-sha sha)))
+      (do
+        (om/transact! app :chat-hisory  (fn [col] (cons col text)))
+        (post-message sender-ch
+                      (assoc (command text)
+                        :user-name (:user-name @app)
+                        :language (keyword (:writing-language @app))
+                        :original-sha sha
+                        :content-sha sha))))
     (clear-text owner)))
 
 (defn replacer [col key val new-val ex-key ex-val]

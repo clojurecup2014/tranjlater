@@ -20,7 +20,9 @@
                       :users []
                       :user-name nil
                       :listener-ch (chan)
-                      :sender-ch (chan)}))
+                      :sender-ch (chan)
+                      :reading-language nil
+                      :writing-language :en}))
 
 (defn view-picker [app owner]
   (reify

@@ -15,4 +15,5 @@
 
 .out-of-date {
     color: gray;
+    font-style: italic;
 }

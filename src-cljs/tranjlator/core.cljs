@@ -22,7 +22,7 @@
                       :listener-ch (chan)
                       :sender-ch (chan)
                       :reading-language nil
-                      :writing-language :en}))
+                      :writing-language "en"}))
 
 (defn view-picker [app owner]
   (reify

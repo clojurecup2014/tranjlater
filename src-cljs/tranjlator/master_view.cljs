@@ -26,19 +26,11 @@
 
 (defn send-message-click [sender-ch text owner app]
   (do
-    #_(post-message sender-ch
-                  {:topic :original
-                   :language (:writing-language @app)
-                   :content text
-                   :content-sha "foo"
-                   :original-sha "foo"
-                   :user-name (:user-name @app)})
-
-  (post-message sender-ch
-                (assoc (command text)
-                  :user-name (:user-name @app)
-                  :language (:writing-language @app)))
-  (clear-text owner)))
+    (post-message sender-ch
+                  (assoc (command text)
+                    :user-name (:user-name @app)
+                    :language (keyword (:writing-language @app))))
+    (clear-text owner)))
 
 
 (defn users-view [app owner]
@@ -133,13 +125,10 @@
                           (when-not (:reading-language app)
                             (dom/div #js {:className "alert alert-success"} "Select a language to view translated messages."))
                           (dom/div #js {:className "col-md-5 col-xs-offset-7"}
-                                   (dom/select #js {:className "form-control"
+                                   (apply dom/select #js {:className "form-control"
                                                     :value (:reading-language app)
-                                                    :onChange (fn [e] (reading-language-change e sender-ch app))}
-                                               (dom/option #js {:value nil} "" )
-                                               (dom/option #js {:value :ar} "Arabic")
-                                               (dom/option #js {:value :en} "English")
-                                               (dom/option #js {:value :fr} "French")))
+                                                          :onChange (fn [e] (reading-language-change e sender-ch app))}
+                                          (map (fn [lang] (dom/option #js {:value (:code lang)} (:name lang))) (cons {:code nil :name ""} +langs+))))
                           (om/build users-view (:users app))
                           (om/build original-view (:original app))
                           (om/build translated-view (:translated app) {:init-state {:label " Translated"
@@ -147,12 +136,10 @@
                                                                                     :show-language false}})
                           (dom/div #js {:className "col-md-12 table"}
                                    (dom/div #js {:className "col-md-3"}
-                                            (dom/select #js {:className "form-control"
+                                            (apply dom/select #js {:className "form-control"
                                                              :value (:writing-language app)
                                                              :onChange (fn [e] (writing-language-change e sender-ch app))}
-                                                        (dom/option #js {:value :ar} "Arabic")
-                                                        (dom/option #js {:value :en} "English")
-                                                        (dom/option #js {:value :fr} "French")))
+                                                        (map (fn [lang] (dom/option #js {:value (:code lang)} (:name lang))) +langs+)))
                                    (dom/div #js {:className "col-md-8"}
                                             (dom/input #js {:className "form-control" :type "text"
                                                             :value text :id "text-entry"

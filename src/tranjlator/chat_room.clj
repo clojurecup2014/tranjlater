@@ -53,19 +53,20 @@
   (str ";; => " result))
 
 (defn create-translator
-  [pub pub-chan language]
+  [pub pub-chan language db]
   (assert (keyword? language) "Invalid language specifier")
   (log/infof "Creating translator for lang: %s" (pr-str language))
   (let [translation-msg-chan (chan 1 (map #(do (log/info "XLATED:" (pr-str %))
                                                %)))
         translator (-> (xlate/->translator language translation-msg-chan)
+                       (assoc :db db)
                        component/start)]
     (a/sub pub :original (:ctrl-chan translator))
     (a/pipe translation-msg-chan pub-chan)
     translator))
 
 (defrecord ChatRoom
-    [initial-users initial-history pub-chan process-chan mock-translator?]
+    [initial-users initial-history pub-chan process-chan mock-translator? db]
 
   component/Lifecycle
   (start [this]
@@ -139,7 +140,7 @@
                                        (if-not (contains? translators language)
                                          (try (assoc translators language (if mock-translator?
                                                                             (mock-translator pub pub-chan language)
-                                                                            (create-translator pub pub-chan language)))
+                                                                            (create-translator pub pub-chan language db)))
                                               (catch Throwable _
                                                 (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
                                                 translators))
@@ -199,7 +200,8 @@
   ([]
      (->chat-room []))
   ([history]
-     (->ChatRoom nil history nil nil nil)))
+     (component/using (->ChatRoom nil history nil nil nil nil)
+                      [:db])))
 
 (comment
   (require '[tranjlator.messages :refer :all])
@@ -212,8 +214,5 @@
   (chat chat-room (->chat "foo" "foo" "foo" "user-1"))
 
   (join chat-room "brian" brian)
-  (join chat-room "bob" bob)
-
-  
-  
+  (join chat-room "bob" bob)  
   )

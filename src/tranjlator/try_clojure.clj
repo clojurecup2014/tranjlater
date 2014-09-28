@@ -7,7 +7,6 @@
 
 (defn read-response
   [resp]
-  (println "resp:" resp)
   {:result (-> resp :body (json/parse-string true))
    :cookie (get-in resp [:headers :set-cookie]
                    (get-in resp [:opts :headers "Cookie"]))})

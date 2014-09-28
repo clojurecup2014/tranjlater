@@ -42,6 +42,11 @@
                       :content-sha sha)))
     (clear-text owner)))
 
+(defn replacer [col key val new-val]
+  (loop [src col acc []]
+    (cond (empty? src) (conj acc new-val)
+          (= (key (first src)) val) (concat acc [new-val] (rest src))
+          :default (recur (rest src) (conj acc (first src))))))
 
 (defn users-view [app owner]
   (reify
@@ -113,7 +118,7 @@
                    (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
-                   (= (keyword lang) topic) (om/transact! app :translated (fn [col] (conj col msg)))
+                   (= (keyword lang) topic) (om/transact! app :translated (fn [col] (replacer col :original-sha (:original-sha msg) msg)))
                    (= :ping topic) (when (= (:target msg) (:user-name @app)) (ping))
                    (= :error topic) (do (let [name (:user-name @app)]
                                           (put! socket-ctrl "Doh")

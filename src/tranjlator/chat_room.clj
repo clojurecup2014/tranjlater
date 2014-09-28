@@ -65,6 +65,26 @@
     (a/pipe translation-msg-chan pub-chan)
     translator))
 
+(defn try-create-translator
+  [language pub pub-chan db]
+  (try (create-translator pub pub-chan language db)
+       (catch Throwable _ nil)))
+
+(defn send-translation-history
+  [chan history translator]
+  (go (let [token (<! (p/token translator))]
+        (doseq [h history]
+          (let [[translation orig-sha trans-sha] (<! (p/translate translator
+                                                                  (:content h)
+                                                                  (:language h)
+                                                                  token))]
+            (log/infof "XLATE HISTORY: %s" translation)
+            (>! chan (msg/->translation (:language translator)
+                                        translation
+                                        (xlate/sha-hex orig-sha)
+                                        (xlate/sha-hex trans-sha)
+                                        (:user-name h))))))))
+
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan mock-translator? db]
 
@@ -136,18 +156,16 @@
                             (log/infof "LANG-SUB: %s users: %s" (pr-str msg) (pr-str users))
                             (if-not (nil? msg)
                               (when-let [chan (get users user-name)]
-                                (a/sub pub language chan)
-                                (>! chan msg)
-                                (recur users history
-                                       (if-not (contains? translators language)
-                                         (try (assoc translators language (if mock-translator?
-                                                                            (mock-translator pub pub-chan language)
-                                                                            (create-translator pub pub-chan language db)))
-                                              (catch Throwable _
-                                                (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
-                                                translators))
-                                         translators)
-                                       try-clj-cookie))
+                                (if-let [translator (if mock-translator? (mock-translator pub pub-chan language)
+                                                        (try-create-translator language pub pub-chan db))]
+                                  (do (a/sub pub language chan)
+                                      (>! chan msg)
+                                      (send-translation-history chan history translator)
+                                      (recur users history
+                                             (assoc translators language translator)
+                                             try-clj-cookie))
+                                  (do (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
+                                      (recur users history translators try-clj-cookie))))
                               (log/warn "ChatRoom shutting down due to \"language-sub\" channel closing")))
 
             language-unsub ([{:keys [language user-name] :as msg}]
@@ -175,8 +193,8 @@
                            (>! pub-chan expr-msg)
                            (let [{:keys [result cookie]} (<! query-result)
                                  result-msg (msg/->chat +clojure-username+
-                                                         "clojure"
-                                                         (clojure-response (:result result))
+                                                        "clojure"
+                                                        (clojure-response (:result result))
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users history translators cookie)))

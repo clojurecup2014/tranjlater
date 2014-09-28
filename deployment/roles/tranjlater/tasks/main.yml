@@ -28,7 +28,7 @@
   docker: name=datomic image=tauho/datomic-free:0.9.4699 state=running
 
 - name: docker tranjlater
-  docker: name="{{ app_container_name }}" image="{{ app_image_name }}:{{ app_tag }}"
+  docker: name="{{ app_container_name }}" image="{{ app_image_name_and_tag }}"
 
 - name: deploy script
   template: src=deploy.j2 dest=/home/dkr/deploy.sh owner=dkr group=docker mode=0700

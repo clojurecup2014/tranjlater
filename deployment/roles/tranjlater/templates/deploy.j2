@@ -1,7 +1,17 @@
 #!/bin/bash
 set -e
 
-docker pull {{ app_image_name }}:{{ app_tag }}
+docker pull {{ app_image_name_and_tag }}
+
 docker stop {{ app_container_name }} || echo 'nothing to stop'
+
 docker rm {{ app_container_name }} || echo 'nothing to remove'
-docker run --name {{ app_container_name }} -d --link datomic:datomic -p 127.0.0.1::80 -e VIRTUAL_HOST={{ app_vhost }} -e NGINX_WEBSOCKETS_PATH={{ app_websockets_path }} {{ app_image_name }}
+
+docker run \
+  --name {{ app_container_name }} \
+  -d \
+  --link datomic:datomic \
+  -p 127.0.0.1::80 \
+  -e VIRTUAL_HOST={{ app_vhost }} \
+  -e NGINX_WEBSOCKETS_PATH={{ app_websockets_path }} \
+  {{ app_image_name }}

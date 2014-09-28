@@ -1,5 +1,5 @@
 (ns tranjlator.master-view
-  (:require [cljs.core.async :refer [<! >! put!] :as a]
+  (:require [cljs.core.async :refer [<! >! put! timeout] :as a]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [tranjlator.actions :refer [check-for-enter post-message clear-text
@@ -93,12 +93,8 @@
     om/IDidUpdate
     (did-update [_ _ _]
       (let [panel (.getElementById js/document "translated-panel")]
-        (set! (.-scrollTop panel) (.-scrollHeight panel)))
-
-;; objDiv.scrollTop = objDiv.scrollHeight;
-
-      )
-    ))
+        (set! (.-scrollTop panel) (.-scrollHeight panel)))))
+  )
 (defn master-view [app owner]
   (reify
     om/IWillMount
@@ -119,8 +115,13 @@
                 (recur))))))
     om/IDidMount
     (did-mount [_]
-      (let [txtbox (.getElementById js/document "text-entry")]
-        (.focus txtbox)))
+      (let [txtbox (.getElementById js/document "text-entry")
+            msg (.getElementById js/document "timeout-alert")]
+        (.focus txtbox)
+        (go
+         (<! (timeout (* 30 1000)))
+         (set! (.-className msg) (+ (.-className msg) " hidden")))))
+
     om/IInitState
     (init-state [_]
       {:text ""})
@@ -128,33 +129,39 @@
     (render-state [this {:keys [text] :as state}]
       (let [sender-ch (:sender-ch app)]
         (dom/div {:className "col-md-12"}
-                 (dom/div #js {:className "col-md-5 col-xs-offset-7"}
-                  (dom/select #js {:className "form-control"
-                                   :value (:reading-language app)
-                                   :onChange (fn [e] (reading-language-change e sender-ch app))}
-                              (dom/option #js {:value nil} "" )
-                              (dom/option #js {:value :ar} "Arabic")
-                              (dom/option #js {:value :en} "English")
-                              (dom/option #js {:value :fr} "French")))
-                 (om/build users-view (:users app))
-                 (om/build original-view (:original app))
-                 (om/build translated-view (:translated app) {:init-state {:label " Translated"
-                                                                     :glyph "glyphicon glyphicon-home"
-                                                                     :show-language false}})
-                 (dom/div #js {:className "col-md-12 table"}
-                          (dom/div #js {:className "col-md-3"}
+                 (dom/div #js {:className "row"}
+                          (when-not (:reading-language app)
+                            (dom/div #js {:className "alert alert-success"} "Select a language to view translated messages."))
+                          (dom/div #js {:className "col-md-5 col-xs-offset-7"}
                                    (dom/select #js {:className "form-control"
-                                                    :value (:writing-language app)
-                                                    :onChange (fn [e] (writing-language-change e sender-ch app))}
+                                                    :value (:reading-language app)
+                                                    :onChange (fn [e] (reading-language-change e sender-ch app))}
+                                               (dom/option #js {:value nil} "" )
                                                (dom/option #js {:value :ar} "Arabic")
                                                (dom/option #js {:value :en} "English")
                                                (dom/option #js {:value :fr} "French")))
-                          (dom/div #js {:className "col-md-8"}
-                                   (dom/input #js {:className "form-control" :type "text"
-                                                   :value text :id "text-entry"
-                                                   :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
-                                                   :onChange #(text-entry % owner state)}))
-                          (dom/div #js {:className "col-md-1"}
-                                   (dom/button #js {:type "button" :className "btn btn-primary"
-                                                    :onClick (fn [e] (send-message-click sender-ch text owner app))}
-                                               (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter"))))))))
+                          (om/build users-view (:users app))
+                          (om/build original-view (:original app))
+                          (om/build translated-view (:translated app) {:init-state {:label " Translated"
+                                                                                    :glyph "glyphicon glyphicon-home"
+                                                                                    :show-language false}})
+                          (dom/div #js {:className "col-md-12 table"}
+                                   (dom/div #js {:className "col-md-3"}
+                                            (dom/select #js {:className "form-control"
+                                                             :value (:writing-language app)
+                                                             :onChange (fn [e] (writing-language-change e sender-ch app))}
+                                                        (dom/option #js {:value :ar} "Arabic")
+                                                        (dom/option #js {:value :en} "English")
+                                                        (dom/option #js {:value :fr} "French")))
+                                   (dom/div #js {:className "col-md-8"}
+                                            (dom/input #js {:className "form-control" :type "text"
+                                                            :value text :id "text-entry"
+                                                            :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
+                                                            :onChange #(text-entry % owner state)}))
+                                   (dom/div #js {:className "col-md-1"}
+                                            (dom/button #js {:type "button" :className "btn btn-primary"
+                                                             :onClick (fn [e] (send-message-click sender-ch text owner app))}
+                                                        (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter"))))
+                 (dom/div #js {:className "row"}
+                          (dom/div #js {:className "alert alert-warning" :id "timeout-alert"}
+                                   "Want to type in a different language? Use the dropdown to tell us which one. Rather code? Use /clojure or @clojure to evaluate forms.")))))))

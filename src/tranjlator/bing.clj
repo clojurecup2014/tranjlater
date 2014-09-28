@@ -101,38 +101,33 @@
     res)) ; datomic lookups won't have a status key -- return res
 
 (defn translate!
-  ([text from to text-sha db]
-     (translate! (access-token) text from to text-sha db))
-  ([access-token text from to text-sha db]
+  ([text from to db]
+     (translate! (access-token) text from to db))
+  ([access-token text from to db]
      (log/info "entering translate!")
-     (let [result-chan (chan 1)]
+     (let [result-chan (chan 1)
+           sha (sha-bytes text)]
        (go
-         (when (not= text-sha (-> text sha-bytes bin->hex))
-           (log/warn "Mismatch between client SHA and our computed SHA for text."
-                     {:text text
-                      :client-sha text-sha
-                      :server-sha (-> text sha-bytes bin->hex)}))
-         (let [text-sha (hex->bin text-sha)]
-           (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) text-sha from to))]
-             (do (log/info "Datomic translation:" resp)
-                 (>! result-chan  resp))
-             (do
-               (log/info "Querying Microsoft translation service..")
-               (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
-                         {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
-                                                                     (:token (<! access-token))
-                                                                     access-token))}
-                          :query-params {:text text
-                                         :from (name from)
-                                         :to   (name to)}}
-                         #(let [trans (parse-translation %)
-                                trans-sha (sha-bytes trans)
-                                _ (log/info "Bing translation:" [trans trans-sha])
-                                tx-data (translation-tx text text-sha from to trans trans-sha)]
-                            (when trans
-                              (log/info "transacting:" tx-data)
-                              @(d/transact (:conn db)  tx-data))
-                            (a/put! result-chan [trans text-sha trans-sha])))))))
+         (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) sha from to))]
+           (do (log/info "Datomic translation:" resp)
+               (>! result-chan  resp))
+           (do
+             (log/info "Querying Microsoft translation service..")
+             (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
+                       {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
+                                                                   (:token (<! access-token))
+                                                                   access-token))}
+                        :query-params {:text text
+                                       :from (name from)
+                                       :to   (name to)}}
+                       #(let [trans (parse-translation %)
+                              trans-sha (sha-bytes trans)
+                              _ (log/info "Bing translation:" [trans trans-sha])
+                              tx-data (translation-tx text sha from to trans trans-sha)]
+                          (when trans
+                            (log/info "transacting:" tx-data)
+                            @(d/transact (:conn db)  tx-data))
+                          (a/put! result-chan [trans sha trans-sha]))))))
        result-chan)))
 
 
@@ -152,7 +147,6 @@
                                                                         (:content msg)
                                                                         (keyword (:language msg))
                                                                         (:language this)
-                                                                        (:content-sha msg)
                                                                         db))]
                          (>! out-chan (->translation language
                                                      trans

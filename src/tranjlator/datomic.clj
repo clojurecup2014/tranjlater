@@ -5,7 +5,12 @@
             [datomic.api :as d :refer [db q]]))
 
 (def +schema+ "schema.dtm")
-(def +uri+ "datomic:free://datomic:4334/tranjlator")
+(defn datomic-uri
+  []
+  (let [db-name "tranjlator"]
+    (if-let [envar (System/getenv "DATOMIC_URI")]
+      (str envar "/" db-name)
+      (str "datomic:mem://" db-name))))
 
 (defn read-file
   [f]
@@ -29,7 +34,7 @@
       (assoc this :conn (d/shutdown false)))))
 
 (defn ->db
-  ([] (->db +uri+ +schema+))
+  ([] (->db (datomic-uri) +schema+))
   ([uri schema-file]
    (->Datomic nil uri (read-file schema-file))))
 
@@ -37,7 +42,7 @@
 (comment
   
   ;; start datomic component & load schema
-  (def DB (component/start (->db +uri+ +schema+)))
+  (def DB (component/start (->db (datomic-uri) +schema+)))
 
   ;; assert
   @(d/transact (:conn DB)

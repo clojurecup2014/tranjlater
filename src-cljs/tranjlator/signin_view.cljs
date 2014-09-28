@@ -7,7 +7,6 @@
 
 (defn login-click [sender-ch text owner app]
   (do
-    (post-message sender-ch (m/login-message text))
     (om/update! app :user-name text)
     (clear-text owner)))
 

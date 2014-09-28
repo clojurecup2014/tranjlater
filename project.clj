@@ -29,6 +29,8 @@
                  :output-to "resources/public/js/main.js"
                  :optimizations :whitespace}}]}
   :profiles {:uberjar {:aot :all
-                       :main tranjlator.core}
+                       :main tranjlator.core
+                       :hooks [leiningen.cljsbuild]}
+
              :dev {:source-paths ["dev"]
                    :dependencies [[org.clojure/tools.namespace "0.2.7"]]}})

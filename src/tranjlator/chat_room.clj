@@ -11,6 +11,11 @@
   (go (doseq [h history]
         (>! user h))))
 
+(defn send-user-list
+  [user user-list]
+  (go (doseq [[name _] user-list]
+        (>! user (msg/->user-join name)))))
+
 (def ^:const +user-default-topics+ #{:original :user-join :user-part})
 
 (defn remove-own-chats
@@ -46,6 +51,7 @@
           pub (a/pub pub-chan :topic)
           user-part (chan 10)
           user-join (chan 10)
+          exists (chan 10)
           chat (chan 10)
           language-sub (chan 10)
           language-unsub (chan 10)
@@ -54,6 +60,8 @@
       (a/sub pub :user-join user-join)
       (a/sub pub :user-part user-part)
       (a/sub pub :original chat)
+      (a/sub pub :exists? exists)
+
       (a/sub pub :langauge-sub language-sub)
       (a/sub pub :language-unsub language-unsub)
 
@@ -70,9 +78,10 @@
             user-join ([{:keys [sender user-name] :as msg}]
                          (log/infof "JOIN: %s" (pr-str msg))
                          (if-not (nil? msg)
-                           (do (send-history sender history)
-                               (sub-user pub user-name sender +user-default-topics+)
-                               (recur (assoc users user-name sender) history translators))
+                           (do (>! sender msg)
+                               (send-user-list sender users)
+                               (send-history sender history)
+                               (recur (assoc users user-name (sub-user pub user-name sender +user-default-topics+)) history translators))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
 
             user-part ([{:keys [user-name] :as msg}]
@@ -106,7 +115,15 @@
                                 (when-let [chan (get users user-name)]
                                   (a/unsub pub language chan)
                                   (recur users history translators))
-                                (log/warn "ChatRoom shutting down due to \"language-unsub\" channel closing"))))))))
+                                (log/warn "ChatRoom shutting down due to \"language-unsub\" channel closing")))
+
+            exists ([{:keys [user-name response-chan] :as msg}]
+                      (if-not (nil? msg)
+                        (do (log/info "users:" (pr-str users))
+                            (>! response-chan (contains? users user-name))
+                            (recur users history translators))
+                        (log/warn "ChatRoom shutting down due to \"exists\" channel closing"))))))))
+  
   (stop [this]
     (a/close! pub-chan)
     (a/<!! process-chan)
@@ -114,7 +131,14 @@
 
   p/MsgSink
   (send-msg [this msg sender]
-    (a/put! pub-chan (assoc msg :sender sender))))
+    (a/put! pub-chan (assoc msg :sender sender)))
+
+  p/Exists?
+  (exists? [this user]
+    (log/info "exists check:" user)
+    (let [response-chan (chan 1)]
+      (a/put! pub-chan {:topic :exists? :user-name user :response-chan response-chan})
+      response-chan)))
 
 (defn ->chat-room
   ([]

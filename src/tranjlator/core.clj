@@ -15,11 +15,11 @@
 (defroutes routes
   (GET "/" [] (resp/resource-response "public/html/index.html"))
   (resources "/")
-  (GET "/messages" req
+  (GET "/wsapp/:user-name" [user-name :as req]
        (with-channel req websocket
          (if-not (ws/websocket? websocket)
            (ws/send! websocket "This is not a websocket! Go away!")
-           (create-user websocket +chat-room+)))))
+           (create-user user-name websocket +chat-room+)))))
 
 (defn -main
   [& [port]]

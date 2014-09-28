@@ -7,7 +7,7 @@
 
 (defn test-chat
   [user msg]
-  (msg/->chat "english" msg "foo" (:name user)))
+  (msg/->chat (:name user) "english" msg "foo"))
 
 (defn make-users
   [num-users]
@@ -21,7 +21,9 @@
   (testing "When a user joins, it receives the chat history."
     (let [chat-room (-> (->chat-room ["hi" "bye!"]) component/start)
           user (chan)]
-      (p/send-msg chat-room (msg/->user-join "User!") user)
+
+      (p/send-msg chat-room (msg/->user-join "User") user)
+      (is (= "User" (:user-name (a/<!! user))))
       (is (= "hi" (a/<!! user)))
       (is (= "bye!" (a/<!! user)))))
 
@@ -48,7 +50,7 @@
       (is (= part-msg (dissoc (a/<!! (:chan user3)) :sender))))))
 
 (deftest test-user-chat
-  (testing "When a user chats only the other users see it."
+  (testing "When a user chats all the users see it."
     (let [[user1 user2 user3 :as users] (make-users 3)
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
           chats ["hi!" "what?!?" "I love lamp!"]]

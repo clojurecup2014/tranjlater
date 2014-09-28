@@ -33,6 +33,10 @@
   {:topic :language-unsub
    :language language
    :user-name user-name})
+(defn ->error-msg
+  [msg]
+  {:topic :error
+   :msg msg})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Server -> Client

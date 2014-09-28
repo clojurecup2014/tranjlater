@@ -8,10 +8,8 @@
             [com.stuartsierra.component :as component]
             [clojure.core.async :as a :refer [<! go go-loop chan >!]]))
 
-
-
 (deftest t-translate
   (testing "translate"
-    (let [de (->translator :de (chan 1))]
+    (let [de (-> (->translator :de (chan 1)) component/start)]
       (a/>!! (:ctrl-chan de) {:content "Hello" :language "en"})
       (is (= "Hallo" (a/<!! (:out-chan de)))))))

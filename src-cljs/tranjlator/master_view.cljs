@@ -145,7 +145,7 @@
                                    (dom/div #js {:className "col-md-8"}
                                             (dom/input #js {:className "form-control" :type "text"
                                                             :value text :id "text-entry"
-                                                            :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
+                                                            :onKeyUp (fn [e] (check-for-enter e owner state app send-message-click))
                                                             :onChange #(text-entry % owner state)}))
                                    (dom/div #js {:className "col-md-1"}
                                             (dom/button #js {:type "button" :className "btn btn-primary"

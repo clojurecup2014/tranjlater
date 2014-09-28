@@ -36,7 +36,7 @@
                                             (dom/div nil
                                                      (dom/input #js {:className "form-control col-md-8" :type "text"
                                                                      :value text :id "user-name"
-                                                                     :onKeyPress (fn [e] (check-for-enter e owner state app login-click))
+                                                                     :onKeyUp (fn [e] (check-for-enter e owner state app login-click))
                                                                      :onChange (fn [e] (text-entry e owner state))}))
                                             (dom/div nil
                                                      (dom/button #js {:type "button" :className "btn btn-primary col-md-3 col-md-offset-4"

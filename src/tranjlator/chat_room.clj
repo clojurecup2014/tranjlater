@@ -81,7 +81,8 @@
                            (do (>! sender msg)
                                (send-user-list sender users)
                                (send-history sender history)
-                               (recur (assoc users user-name (sub-user pub user-name sender +user-default-topics+)) history translators))
+                               (sub-user pub user-name sender +user-default-topics+)
+                               (recur (assoc users user-name sender) history translators))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
 
             user-part ([{:keys [user-name] :as msg}]

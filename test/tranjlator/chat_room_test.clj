@@ -58,7 +58,7 @@
       (doseq [[c u] (map vector chats users)]
         (p/send-msg chat-room (test-chat u c) (:chan u)))
 
-      (are [x] (and (= (:content x) (first chats)))
+      (are [x] (= (:content x) (first chats))
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))

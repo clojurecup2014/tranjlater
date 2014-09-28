@@ -80,12 +80,29 @@
     (let [[user] (make-users 1)
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
 
-      (p/send-msg chat-room (doto (msg/->language-sub (:name user) :de) (->> (log/info "sub msg:"))) (:chan user))
+      (p/send-msg chat-room (msg/->language-sub (:name user) :de) (:chan user))
       (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation
       (p/send-msg chat-room (test-chat user "hello") (:chan user))
 
-      (let [messages (group-by :topic [(doto (a/<!! (:chan user)) (->> (log/info "RECV:")))
-                                       (doto (a/<!! (:chan user)) (->> (log/info "RECV:")))])]
-        (log/info "messages:" messages)
+      (let [messages (group-by :topic [(a/<!! (:chan user)) (a/<!! (:chan user))])]
+
         (is (= "hello" (get-in messages [:original 0 :content])))
         (is (= "This will be translated to: :de!" (get-in messages [:de 0 :content])))))))
+
+(deftest test-language-unsub
+  (testing "When a user unsubscribes to a given language, it stops receiving translations to that language."
+    (let [[user] (make-users 1)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
+
+      (p/send-msg chat-room (msg/->language-sub (:name user) :de) (:chan user))
+      (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation
+      (p/send-msg chat-room (msg/->language-unsub (:name user) :de) (:chan user))
+      (log/info "UNSUB-CONF:" (a/<!! (:chan user))) ;; throw away unsub confirmation
+      (p/send-msg chat-room (test-chat user "hello") (:chan user))
+
+      (is (= "hello" (:content (a/<!! (:chan user)))))
+
+      (let [timeout (a/timeout 1000)]
+        (a/alt!!
+          (:chan user) ([v] (is false (format "user recvd: %s. Should not have recvd anything." (pr-str v))))
+          timeout ([_] (is true)))))))

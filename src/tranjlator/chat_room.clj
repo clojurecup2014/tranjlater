@@ -118,6 +118,7 @@
                               (if-not (nil? msg)
                                 (when-let [chan (get users user-name)]
                                   (a/unsub pub language chan)
+                                  (>! chan msg)
                                   (recur users history translators))
                                 (log/warn "ChatRoom shutting down due to \"language-unsub\" channel closing")))
 

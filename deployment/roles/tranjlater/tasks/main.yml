@@ -1,6 +1,6 @@
 ---
 - name: clojurecup user
-  user: name=clojurecup comment="Clojure Cup Judges" group=docker home=/home/clojurecup
+  user: name=clojurecup comment="Clojure Cup Judges" home=/home/clojurecup
 
 - name: ensure clojurecup .ssh dir
   file: path=/home/clojurecup/.ssh owner=clojurecup mode=0700 state=directory
@@ -17,12 +17,18 @@
 - name: jenkins dkr ssh key
   copy: src=authorized_keys/dkr dest=/home/dkr/.ssh/authorized_keys owner=dkr mode=0600
 
-- name: dkr .dockercfg
-  template: src=dockercfg.j2 dest=/home/dkr/.dockercfg owner=dkr group=docker mode=0600
-
 - name: docker-py
   pip: name=docker-py
 
 - name: docker nginx autoproxy
-  docker: ports=80:80 image=jwilder/nginx-proxy volumes=/var/run/docker.sock:/tmp/docker.sock
+  docker: ports=80:80 image=colinrymer/nginx-proxy volumes=/var/run/docker.sock:/tmp/docker.sock state=running
   #docker run -d -p 80:80 -v /var/run/docker.sock:/tmp/docker.sock -t jwilder/nginx-proxy
+
+- name: docker datomic-free
+  docker: name=datomic image=tauho/datomic-free:0.9.4699 state=running
+
+- name: docker tranjlater
+  docker: name="{{ app_container_name }}" image="{{ app_image_name_and_tag }}"
+
+- name: deploy script
+  template: src=deploy.j2 dest=/home/dkr/deploy.sh owner=dkr group=docker mode=0700

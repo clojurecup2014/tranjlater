@@ -9,5 +9,6 @@
   register: command_result
   failed_when: "'vulnerable' in command_result.stdout"
 
+
 #- name: relink libraries
   #command: /sbin/ldconfig

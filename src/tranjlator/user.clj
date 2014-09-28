@@ -4,7 +4,7 @@
             [org.httpkit.server :as ws]
             [clojure.tools.reader.edn :as edn]
             
-            [tranjlator.chat-room :as chat]
+            [tranjlator.protocols :as p]
             [tranjlator.messages :as msg]))
 
 (defn create-user
@@ -12,22 +12,21 @@
   (go (let [user-read (chan 10)
             user-write (chan 10)]
 
-        (if (doto (<! (chat/exists? chat-room user-name))
-              (->> (log/info "exists result:")))
+        (if (<! (p/exists? chat-room user-name))
           (do (log/info "disconnecting websocket: username taken:" user-name)
               (ws/send! websocket (pr-str (msg/->error-msg "Username unavailable!")))
               (ws/close websocket))
           (do (log/info "new websocket:" user-name)
               (ws/on-receive websocket #(a/put! user-read %))
               (ws/on-close websocket (fn [& _]
-                                       (chat/send-msg chat-room (msg/->user-part user-name) user-write)
+                                       (p/send-msg chat-room (msg/->user-part user-name) user-write)
                                        (a/close! user-read)
                                        (a/close! user-write)))
 
               (go-loop []
                 (let [msg (edn/read-string (<! user-read))]
                   (if-not (nil? msg)
-                    (do (chat/send-msg chat-room msg user-write)
+                    (do (p/send-msg chat-room msg user-write)
                         (recur))
                     (ws/close websocket))))
 
@@ -38,4 +37,4 @@
                         (recur))
                     (ws/close websocket))))
 
-              (chat/send-msg chat-room (msg/->user-join user-name) user-write))))))
+              (p/send-msg chat-room (msg/->user-join user-name) user-write))))))

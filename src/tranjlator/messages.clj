@@ -4,7 +4,7 @@
 ;; Client -> Server
 
 (defn ->chat
-  [language content sha user-name]
+  [user-name language content sha]
   {:topic :original
    :language language
    :content content
@@ -20,6 +20,18 @@
 (defn ->user-part
   [user-name]
   {:topic :user-part
+   :user-name user-name})
+
+(defn ->language-sub
+  [user-name language]
+  {:topic :language-sub
+   :language language
+   :user-name user-name})
+
+(defn ->language-unsub
+  [user-name language]
+  {:topic :language-unsub
+   :language language
    :user-name user-name})
 
 (defn ->error-msg

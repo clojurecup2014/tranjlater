@@ -1,0 +1,53 @@
+
+[;; Original
+ {:db/ident :original/sha
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/bytes
+  :db/unique :db.unique/identity
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/ident :original/text
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/ident :original/language
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/ident :original/translation
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db.install/_attribute :db.part/db}
+  
+ ;; Translation
+ {:db/ident :translation/sha
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/bytes
+  :db/unique :db.unique/identity
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/ident :translation/text
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/ident :translation/language
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/ident :translation/score
+  :db/id #db/id[:db.part/db]
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}]
+

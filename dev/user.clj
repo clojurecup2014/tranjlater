@@ -1,6 +1,7 @@
 (ns user
   (:require [tranjlator.core :refer [-main]]
-            [clojure.tools.namespace.repl :refer [refresh]]))
+            [clojure.tools.namespace.repl :refer [refresh]]
+            [com.stuartsierra.component :as component]))
 
 (def system nil)
 

@@ -83,6 +83,7 @@
 
   (stop [this]
     (a/close! ctrl-chan)
+    (a/close! out-chan)
     (a/<!!    work-chan)
     (dissoc this :ctrl-chan :work-chan :out-chan)))
 
@@ -96,9 +97,8 @@
   (a/<!! (access-token))
   (a/<!! (translate! "Hello, World." :en :de))
 
-  (def translator (-> (->translator :de out-chan) component/start))
-
   (let [out-chan (chan 1)]
+    (def translator (-> (->translator :de out-chan) component/start))
     (a/>!! (:ctrl-chan translator) {:topic "original"
                                     :language :en
                                     :content "Hello, World!"

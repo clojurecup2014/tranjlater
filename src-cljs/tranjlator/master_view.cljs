@@ -17,8 +17,10 @@
     (when (not (= new-lang old-lang))
       (do
         (om/update! app :reading-language new-lang)
-        (put! sender-ch (m/->language-unsub user-name old-lang))
-        (put! sender-ch (m/->language-sub user-name new-lang))))))
+        (when-not (nil? old-lang)
+          (put! sender-ch (m/->language-unsub user-name old-lang)))
+        (when-not (nil? new-lang)
+          (put! sender-ch (m/->language-sub user-name new-lang)))))))
 
 (defn writing-language-change [e sender-ch app]
   (let [new-lang (.. e -target -value)]

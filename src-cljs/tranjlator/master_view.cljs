@@ -7,6 +7,7 @@
             [tranjlator.sockets :refer [make-socket]]
             [tranjlator.langs :refer [+langs+]]
             [tranjlator.messages :as m]
+            [tranjlator.hashing :refer [hash hex-string]]
             [tranjlator.slash-commands :refer [command]])
   (:require-macros [cljs.core.async.macros :refer [go-loop go alt!]]))
 
@@ -32,10 +33,13 @@
 
 (defn send-message-click [sender-ch text owner app]
   (do
-    (post-message sender-ch
-                  (assoc (command text)
-                    :user-name (:user-name @app)
-                    :language (keyword (:writing-language @app))))
+    (let [sha (-> text hash hex-string)]
+      (post-message sender-ch
+                    (assoc (command text)
+                      :user-name (:user-name @app)
+                      :language (keyword (:writing-language @app))
+                      :original-sha sha
+                      :content-sha sha)))
     (clear-text owner)))
 
 

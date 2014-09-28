@@ -1,3 +1,14 @@
-.blue {
-color: blue;
+.chat {
+    max-height: 290px;
+    overflow-y:scroll;
+    height: 290px;
+    padding: 0px;
+}
+
+.list-group {
+    margin-bottom: 0px;
+}
+
+.list-group-item {
+    padding: 7px 6px;
 }

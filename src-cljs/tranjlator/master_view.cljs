@@ -36,7 +36,8 @@
 
   (post-message sender-ch
                 (assoc (command text)
-                  :user-name (:user-name @app)))
+                  :user-name (:user-name @app)
+                  :language (:writing-language @app)))
   (clear-text owner)))
 
 
@@ -67,10 +68,14 @@
                                  (dom/h4 #js {:className "panel-title"}
                                          (dom/span #js {:className "glyphicon glyphicon-globe"})
                                          " Original"))
-                        (dom/div #js {:className "panel-body"}
+                        (dom/div #js {:className "panel-body chat" :id "original-panel"}
                                  (apply dom/ul #js {:className "list-group"}
                                         (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item)
-                                                               (dom/span #js {:className "badge"} (name (:language item))))) app))))))))
+                                                               (dom/span #js {:className "badge"} (name (:language item))))) app))))))
+    om/IDidUpdate
+    (did-update [_ _ _]
+      (let [panel (.getElementById js/document "original-panel")]
+        (set! (.-scrollTop panel) (.-scrollHeight panel))))))
 
 (defn translated-view [app owner]
   (reify
@@ -82,10 +87,18 @@
                                  (dom/h4 #js {:className "panel-title"}
                                          (dom/span #js {:className "glyphicon glyphicon-home"})
                                          " Translated"))
-
-                        (dom/div #js {:className "panel-body"}
+                        (dom/div #js {:className "panel-body chat" :id "translated-panel"}
                                  (apply dom/ul #js {:className "list-group"}
-                                        (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item))) app))))))))
+                                        (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item))) app))))))
+    om/IDidUpdate
+    (did-update [_ _ _]
+      (let [panel (.getElementById js/document "translated-panel")]
+        (set! (.-scrollTop panel) (.-scrollHeight panel)))
+
+;; objDiv.scrollTop = objDiv.scrollHeight;
+
+      )
+    ))
 (defn master-view [app owner]
   (reify
     om/IWillMount

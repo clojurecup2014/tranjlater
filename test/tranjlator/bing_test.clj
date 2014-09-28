@@ -14,7 +14,7 @@
           translator (get-in system [:translator])]
       (a/>!! (:ctrl-chan translator)
              {:content "Hello" :language "en"
-              :content-sha "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"})
+              :content-sha "9B71D224BD62F3785D96D46AD3EA3D73319BFBC2890CAADAE2DFF72519673CA72323C3D99BA5C11D7C7ACC6E14B8C5DA0C4663475C2E5C3ADEF46F73BCDEC043"})
       (is (= "Hallo"
              (:content (a/<!! (:out-chan translator))))))))
 

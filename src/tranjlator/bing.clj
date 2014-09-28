@@ -25,9 +25,13 @@
   [s]
   (sha512-bytes ((fnil lower-case "") s)))
 
-(defn sha-hex
+(defn bin->hex
   [^bytes b]
   (javax.xml.bind.DatatypeConverter/printHexBinary b))
+
+(defn hex->bin
+  [^String s]
+  (javax.xml.bind.DatatypeConverter/parseHexBinary s))
 
 (defn expired?
   [{:keys [expires] :as token}]
@@ -96,13 +100,18 @@
     res)) ; datomic lookups won't have a status key -- return res
 
 (defn translate!
-  ([text from to db]
-     (translate! (access-token) text from to db))
-  ([access-token text from to db]
+  ([text from to text-sha db]
+     (translate! (access-token) text from to text-sha db))
+  ([access-token text from to text-sha db]
      (log/info "entering translate!")
      (let [result-chan (chan 1)]
        (go
-         (let [text-sha (sha-bytes text)]
+         (when (not= text-sha (-> text sha-bytes bin->hex))
+           (log/warn "Mismatch between client SHA and our computed SHA for text."
+                     {:text text
+                      :client-sha text-sha
+                      :server-sha (-> text sha-bytes bin->hex)}))
+         (let [text-sha (hex->bin text-sha)]
            (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) text-sha from to))]
              (do (log/info "datomic translation:" resp)
                  (>! result-chan  resp))
@@ -117,11 +126,12 @@
                                          :to   (name to)}}
                          #(let [trans (parse-translation %)
                                 trans-sha (sha-bytes trans)
-                                _ (log/info "translation:" [trans trans-sha])]
-                            (log/info "transacting:" (translation-tx text text-sha from to trans trans-sha))
-                            @(d/transact (:conn db) (translation-tx text text-sha from to trans trans-sha))
-                            (a/put! result-chan [trans text-sha trans-sha])
-))))))
+                                _ (log/info "Bing translation:" [trans trans-sha])
+                                tx-data (translation-tx text text-sha from to trans trans-sha)]
+                            (when trans
+                              (log/info "transacting:" tx-data)
+                              @(d/transact (:conn db)  tx-data))
+                            (a/put! result-chan [trans text-sha trans-sha])))))))
        result-chan)))
 
 
@@ -141,11 +151,12 @@
                                                                         (:content msg)
                                                                         (keyword (:language msg))
                                                                         (:language this)
+                                                                        (:content-sha msg)
                                                                         db))]
                          (>! out-chan (->translation language
                                                      trans
-                                                     (doto (sha-hex   org-sha) (->> pr-str (log/info "Origin-SHA:")))
-                                                     (doto (sha-hex trans-sha) (->> pr-str (log/info "trans-SHA:")))
+                                                     (doto (bin->hex  org-sha) (->> pr-str (log/info "Origin-SHA:")))
+                                                     (doto (bin->hex trans-sha) (->> pr-str (log/info "trans-SHA:")))
                                                      (:user-name msg)))
                          (recur token)))))))
 

@@ -23,9 +23,14 @@
     om/IRender
     (render [this]
       (dom/div #js {:className "col-md-2"}
-               (dom/h4 nil "Users")
-               (apply dom/ul nil
-                      (map (fn [item] (dom/li nil item)) (sort app)))))))
+               (dom/div #js {:className "panel panel-info"}
+                        (dom/div #js {:className "panel-heading"}
+                                 (dom/h4 #js {:className "panel-title"}
+                                         (dom/span #js {:className "glyphicon glyphicon-user"})
+                                         " Users"))
+                        (dom/div #js {:className "panel-body"}
+                                 (apply dom/ul nil
+                                        (map (fn [item] (dom/li nil item)) (sort app)))))))))
 
 (defn format-chat [{:keys [user-name content]}]
   (str user-name ": " content ))
@@ -35,13 +40,18 @@
     om/IRenderState
     (render-state [this state]
       (let [label (om/get-state owner :label)
-            glyph (om/get-state owner :glyph)]
+            glyph (om/get-state owner :glyph)
+            show-lan (om/get-state owner :show-language)]
         (dom/div #js {:className "col-md-5"}
-                 (dom/h4 nil
-                         (dom/span #js {:className glyph})
-                         label)
-                 (apply dom/ul nil
-                        (map (fn [item] (dom/li nil (format-chat item))) app)))))))
+                 (dom/div #js {:className "panel panel-primary"}
+                          (dom/div #js {:className "panel-heading"}
+                                   (dom/h4 #js {:className "panel-title"}
+                                           (dom/span #js {:className glyph})
+                                           label))
+                          (dom/div #js {:className "panel-body"}
+                                   (apply dom/ul #js {:className "list-group"}
+                                          (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item)
+                                                                 (dom/span #js {:className "badge"} (if show-lan (:language item))))) app)))))))))
 
 (defn master-view [app owner]
   (reify
@@ -66,15 +76,17 @@
         (dom/div nil
                  (om/build users-view (:users app))
                  (om/build chat-view (:original app) {:init-state {:label " Original"
-                                                                   :glyph "glyphicon glyphicon-globe"}})
+                                                                   :glyph "glyphicon glyphicon-globe"
+                                                                   :show-language true}})
                  (om/build chat-view (:translated app) {:init-state {:label " Translated"
-                                                                     :glyph "glyphicon glyphicon-home"}})
+                                                                     :glyph "glyphicon glyphicon-home"
+                                                                     :show-language false}})
                  (dom/div #js {:className "form-group col-md-8 col-md-offset-2"}
                           (dom/input #js {:className "form-control" :type "text"
                                           :value text
                                           :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
                                           :onChange #(text-entry % owner state)}))
                  (dom/div #js {:className "col-xs-offset-2 col-xs-10"}
-                          (dom/button #js {:type "button" :className "button"
+                          (dom/button #js {:type "button" :className "btn btn-primary"
                                            :onClick (fn [e] (send-message-click sender-ch text owner app))}
                                       (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter")))))))

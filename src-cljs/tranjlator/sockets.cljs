@@ -23,9 +23,9 @@
        (>! server-ch msg)
        (recur)))))
 
-(defn make-socket [listener-ch sender-ch]
+(defn make-socket [listener-ch sender-ch user-name]
   (let [ws (doto (WebSocket.)
-             (.open (str "ws://" (.. js/window -location -host) +ws-url+)))]
+             (.open (str "ws://" (.. js/window -location -host) +ws-url+ user-name)))]
 
     (.dir js/console ws)
     (.dir js/console EventType)

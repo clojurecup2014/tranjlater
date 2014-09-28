@@ -8,10 +8,18 @@
 (defprotocol MsgSink
   (send-msg [this msg sender]))
 
+(defprotocol OnDisconnect
+  (on-disconnect [this user-channel]))
+
 (defn send-history
   [user history]
   (go (doseq [h history]
         (>! user h))))
+
+(defn send-user-list
+  [user user-list]
+  (go (doseq [[name _] user-list]
+        (>! user (msg/->user-join name)))))
 
 (def ^:const +user-default-topics+ #{:original :user-join :user-part})
 
@@ -40,6 +48,7 @@
           pub (a/pub pub-chan :topic)
           user-part (chan 10)
           user-join (chan 10)
+          disconnect (chan 10)
           chat (chan 10)
           initial-users (reduce (fn [acc [name chan]] (assoc acc name (sub-user pub name chan +user-default-topics+))) {} initial-users)
           initial-history (or initial-history [])]
@@ -47,6 +56,7 @@
       (a/sub pub :user-join user-join)
       (a/sub pub :user-part user-part)
       (a/sub pub :original chat)
+      (a/sub pub :disconnect disconnect)
       
       (assoc this
         :pub-chan pub-chan
@@ -60,8 +70,7 @@
                          (log/infof "JOIN: %s" (pr-str msg))
                          (if-not (nil? msg)
                            (do (>! sender msg)
-                               (doseq [[name _] users]
-                                 (>! sender (msg/->user-join name)))
+                               (send-user-list sender users)
                                (send-history sender history)
                                (recur (assoc users user-name (sub-user pub user-name sender +user-default-topics+)) history))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
@@ -79,7 +88,12 @@
                     (log/infof "CHAT: %s" (pr-str msg))
                     (if-not (nil? msg)
                       (recur users (conj history msg))
-                      (log/warn "ChatRoom shutting down due to \"chat\" channel closing"))))))))
+                      (log/warn "ChatRoom shutting down due to \"chat\" channel closing")))
+
+            disconnect ([{:keys [user-channel]}]
+                          )
+            )))))
+  
   (stop [this]
     (a/close! pub-chan)
     (a/<!! process-chan)
@@ -87,7 +101,11 @@
 
   MsgSink
   (send-msg [this msg sender]
-    (a/put! pub-chan (assoc msg :sender sender))))
+    (a/put! pub-chan (assoc msg :sender sender)))
+
+  OnDisconnect
+  (on-disconnect [this user-channel]
+    (a/put! pub-chan {:topic :disconnect :channel user-channel})))
 
 (defn ->chat-room
   ([]

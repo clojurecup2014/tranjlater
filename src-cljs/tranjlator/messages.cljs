@@ -8,11 +8,11 @@
 (defn ->language-sub
   [user-name language]
   {:topic :language-sub
-   :language (read-string language)
+   :language (keyword language)
    :user-name user-name})
 
 (defn ->language-unsub
   [user-name language]
   {:topic :language-unsub
-   :language (read-string language)
+   :language (keyword language)
    :user-name user-name})

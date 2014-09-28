@@ -104,7 +104,7 @@
                    (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
-                   (= (str lang) (str topic)) (om/transact! app :translated (fn [col] (conj col msg)))
+                   (= (keyword lang)  topic) (om/transact! app :translated (fn [col] (conj col msg)))
                    :default (println "RECVD:" msg "type: " (keys msg))))
                 (recur))))))
     om/IDidMount

@@ -129,7 +129,7 @@
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
 
-      (are [x] (= (:content x) (clojure-response result))
+      (are [x] (= (:content x) (clojure-response {:result result} ))
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
@@ -141,7 +141,7 @@
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
 
-      (are [x] (= (:content x) (clojure-response result))
+      (are [x] (= (:content x) (clojure-response {:result result}))
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))))
@@ -164,7 +164,7 @@
       (a/<!! (:chan user)) ;; drop result of form1
 
       (a/<!! (:chan user)) ;; drop broadcast of form2
-      (is (= (:content (a/<!! (:chan user))) (clojure-response value))))))
+      (is (= (:content (a/<!! (:chan user))) (clojure-response {:result value}))))))
 
 (deftest test-ping
   (testing "When a user sends a clojure form all users see the form and the result as chat."

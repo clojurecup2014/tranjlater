@@ -72,18 +72,19 @@
 
 (defn send-translation-history
   [chan history translator]
-  (go (let [token (<! (p/token translator))]
-        (doseq [h history]
-          (go (let [[translation orig-sha trans-sha] (<! (p/translate translator
-                                                                      (:content h)
-                                                                      (:language h)
-                                                                      token))]
-                (>! chan (msg/->translation (:language translator)
-                                            translation
-                                            (xlate/sha-hex orig-sha)
-                                            (xlate/sha-hex trans-sha)
-                                            (:user-name h)))
-                (log/infof "XLATE HISTORY: %s" translation)))))))
+  (let [token (promise)]
+    (a/take! (p/token translator) #(deliver token %))
+    (doseq [h history]
+      (go (let [[translation orig-sha trans-sha] (<! (p/translate translator
+                                                                  (:content h)
+                                                                  (:language h)
+                                                                  @token))]
+            (>! chan (msg/->translation (:language translator)
+                                        translation
+                                        (xlate/sha-hex orig-sha)
+                                        (xlate/sha-hex trans-sha)
+                                        (:user-name h)))
+            (log/infof "XLATE HISTORY: %s" translation))))))
 
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan mock-translator? db]

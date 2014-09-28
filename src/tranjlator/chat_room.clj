@@ -53,14 +53,8 @@
   [pub pub-chan language]
   (assert (keyword? language) "Invalid language specifier")
   (log/infof "Creating translator for lang: %s" (pr-str language))
-  (let [translation-msg-chan (chan 1 (map #(do
-                                             (log/info "XLATED:" (pr-str %))
-                                             (hash-map :topic language
-                                                      :language language
-                                                      :content %
-                                                      :content-sha "sha!"
-                                                      :original-sha "some other sha!"
-                                                      :translated-sha "sha!"))))
+  (let [translation-msg-chan (chan 1 (map #(do (log/info "XLATED:" (pr-str %))
+                                               %)))
         translator (-> (xlate/->translator language translation-msg-chan)
                        component/start)]
     (a/sub pub :original (:ctrl-chan translator))

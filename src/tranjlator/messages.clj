@@ -45,6 +45,12 @@
    :body form
    :text text})
 
+(defn ->ping
+  [text target]
+  {:topic :ping
+   :text text
+   :target target})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Server -> Client
 

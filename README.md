@@ -4,6 +4,8 @@ A Clojure library designed to ... well, that part is up to you.
 
 ## Usage
 
+DATOMIC_URI="datomic:free://localhost:4334" lein repl
+
 FIXME
 
 ## License

@@ -138,13 +138,13 @@
 
             clojure ([{:keys [form sender] :as msg}]
                        (if-not (nil? msg)
-                         (let [expr-msg (msg/->chat "Clojure" :clojure form "foo")
+                         (let [expr-msg (msg/->chat "Clojure" "clojure" form "foo")
                                query-result (try/query form try-clj-cookie)]
                            (>! pub-chan expr-msg)
                            (let [{:keys [result cookie]} (<! query-result)
                                  result-msg (msg/->chat "Clojure"
-                                                        :clojure
-                                                        (:result result)
+                                                         "clojure"
+                                                         (str ";; => " (:result result))
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users

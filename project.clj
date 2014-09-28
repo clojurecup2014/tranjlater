@@ -28,12 +28,6 @@
                 {:pretty-print true
                  :output-to "resources/public/js/main.js"
                  :optimizations :whitespace}}]}
-
-  :uberimage {:cmd ["/usr/bin/java"
-                    "-Dcom.sun.management.jmxremote"
-                    "-Dcom.sun.management.jmxremote.port=7199"
-                    "-jar" "/uberjar.jar"]}
-  
   :profiles {:uberjar {:aot :all
                        :main tranjlator.core
                        :hooks [leiningen.cljsbuild]}

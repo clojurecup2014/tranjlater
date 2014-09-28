@@ -161,7 +161,6 @@
   ([api-creds language out-chan]
      (component/using (->Translator api-creds language nil nil out-chan nil)
                       [:db])))
-                              
 
 
 ;; unused

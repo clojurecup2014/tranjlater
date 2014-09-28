@@ -57,7 +57,7 @@
 (defn format-chat [{:keys [user-name content]}]
   (str user-name ": " content ))
 
-(defn chat-view [app owner opts]
+(defn original-view [app owner opts]
   (reify
     om/IRenderState
     (render-state [this state]
@@ -75,6 +75,23 @@
                                           (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item)
                                                                  (dom/span #js {:className "badge"} (if show-lan (name (:language item)))))) app)))))))))
 
+(defn translated-view [app owner opts]
+  (reify
+    om/IRenderState
+    (render-state [this state]
+      (let [label (om/get-state owner :label)
+            glyph (om/get-state owner :glyph)
+            show-lan (om/get-state owner :show-language)]
+        (dom/div #js {:className "col-md-5"}
+                 (dom/div #js {:className "panel panel-primary"}
+                          (dom/div #js {:className "panel-heading"}
+                                   (dom/h4 #js {:className "panel-title"}
+                                           (dom/span #js {:className glyph})
+                                           label))
+                          (dom/div #js {:className "panel-body"}
+                                   (apply dom/ul #js {:className "list-group"}
+                                          (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item)
+                                                                 (dom/span #js {:className "badge"} (if show-lan (name (:language item)))))) app)))))))))
 (defn master-view [app owner]
   (reify
     om/IWillMount
@@ -97,10 +114,10 @@
       (let [sender-ch (:sender-ch app)]
         (dom/div nil
                  (om/build users-view (:users app))
-                 (om/build chat-view (:original app) {:init-state {:label " Original"
+                 (om/build original-view (:original app) {:init-state {:label " Original"
                                                                    :glyph "glyphicon glyphicon-globe"
                                                                    :show-language true}})
-                 (om/build chat-view (:translated app) {:init-state {:label " Translated"
+                 (om/build translated-view (:translated app) {:init-state {:label " Translated"
                                                                      :glyph "glyphicon glyphicon-home"
                                                                      :show-language false}})
                  (dom/div #js {:className "form-group col-md-4 col-md-offset-2"}

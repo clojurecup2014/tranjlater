@@ -4,6 +4,7 @@
             [tranjlator.messages :as msg]
             [tranjlator.protocols :as p]
             [tranjlator.try-clojure :as try]
+            [tranjlator.bing :as xlate]
             [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]))
 
@@ -30,13 +31,16 @@
 
 
 (defn mock-translator
-  [language]
-  (map #(merge % {:topic language
-                  :language language
-                  :content (format "This will be translated to: %s!" (pr-str language) )
-                  :content-sha "sha!"
-                  :original-sha "some other sha!"
-                  :translated-sha "sha!"})))
+  [pub pub-chan language]
+  (let [translator-chan (chan 1 (map #(merge % {:topic language
+                                                :language language
+                                                :content (format "This will be translated to: %s!" (pr-str language) )
+                                                :content-sha "sha!"
+                                                :original-sha "some other sha!"
+                                                :translated-sha "sha!"})))]
+    (a/sub pub :original translator-chan)
+    (a/pipe translator-chan pub-chan)
+    translator-chan))
 
 (def ^:const +clojure-username+ "clojure")
 
@@ -50,13 +54,18 @@
 
 (defn create-translator
   [pub pub-chan language]
-  (let [translator-chan (chan 1 (mock-translator language))]
-    (a/sub pub :original translator-chan)
-    (a/pipe translator-chan pub-chan)
-    translator-chan))
+  (assert (keyword? language) "Invalid language specifier")
+  (log/infof "Creating translator for lang: %s" (pr-str language))
+  (let [translation-msg-chan (chan 1 (map #(do (log/info "XLATED:" (pr-str %))
+                                               %)))
+        translator (-> (xlate/->translator language translation-msg-chan)
+                       component/start)]
+    (a/sub pub :original (:ctrl-chan translator))
+    (a/pipe translation-msg-chan pub-chan)
+    translator))
 
 (defrecord ChatRoom
-    [initial-users initial-history pub-chan process-chan]
+    [initial-users initial-history pub-chan process-chan mock-translator?]
 
   component/Lifecycle
   (start [this]
@@ -128,7 +137,12 @@
                                 (>! chan msg)
                                 (recur users history
                                        (if-not (contains? translators language)
-                                         (assoc translators language (create-translator pub pub-chan language))
+                                         (try (assoc translators language (if mock-translator?
+                                                                            (mock-translator pub pub-chan language)
+                                                                            (create-translator pub pub-chan language)))
+                                              (catch Throwable _
+                                                (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
+                                                translators))
                                          translators)
                                        try-clj-cookie))
                               (log/warn "ChatRoom shutting down due to \"language-sub\" channel closing")))
@@ -162,10 +176,7 @@
                                                          (clojure-response (:result result))
                                                         "foo")]
                              (>! pub-chan result-msg)
-                             (recur users
-                                    (concat history [expr-msg result-msg])
-                                    translators
-                                    cookie)))
+                             (recur users history translators cookie)))
                          (log/warn "ChatRoom shutting down due to \"clojure\" channel closing"))))))))
   
   (stop [this]
@@ -188,7 +199,7 @@
   ([]
      (->chat-room []))
   ([history]
-     (->ChatRoom nil history nil nil)))
+     (->ChatRoom nil history nil nil nil)))
 
 (comment
   (require '[tranjlator.messages :refer :all])

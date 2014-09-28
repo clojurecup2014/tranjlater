@@ -1,4 +1,5 @@
-(ns tranjlator.messages)
+(ns tranjlator.messages
+  (:require [cljs.reader :refer [read-string]]))
 
 (defn login-message [user-name]
   {:topic :user-join
@@ -7,11 +8,11 @@
 (defn ->language-sub
   [user-name language]
   {:topic :language-sub
-   :language language
+   :language (read-string language)
    :user-name user-name})
 
 (defn ->language-unsub
   [user-name language]
   {:topic :language-unsub
-   :language language
+   :language (read-string language)
    :user-name user-name})

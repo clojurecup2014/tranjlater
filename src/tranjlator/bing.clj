@@ -6,7 +6,9 @@
             [taoensso.timbre  :as log]
             [com.stuartsierra.component :as component]
             [clojure.core.async :as a :refer [<! go go-loop chan >!]]
-            [clojure.core.async.impl.protocols :as impl]))
+            [clojure.core.async.impl.protocols :as impl]
+
+            [tranjlator.messages :refer [->translation]]))
 
 (def +creds+
   {:client-id "clojure-cup-tranjlator"
@@ -75,14 +77,19 @@
         :work-chan (go-loop [token (<! (access-token api-creds))]
                      (when-some [msg (<! ctrl-chan)]
                        (let [token (if (expired? token) (<! (access-token api-creds)) token)]
-                         (>! out-chan (<! (translate! (:token token)
-                                                      (:content msg)
-                                                      (:language msg)
-                                                      (:language this))))
+                         (>! out-chan (->translation (keyword language)
+                                                     (<! (translate! (:token token)
+                                                                     (:content msg)
+                                                                     (:language msg)
+                                                                     (:language this)))
+                                                     "original sha!"
+                                                     "translated sha!"
+                                                     (:user-name msg)))
                          (recur token)))))))
 
   (stop [this]
     (a/close! ctrl-chan)
+    (a/close! out-chan)
     (a/<!!    work-chan)
     (dissoc this :ctrl-chan :work-chan :out-chan)))
 
@@ -96,9 +103,8 @@
   (a/<!! (access-token))
   (a/<!! (translate! "Hello, World." :en :de))
 
-  (def translator (-> (->translator :de out-chan) component/start))
-
   (let [out-chan (chan 1)]
+    (def translator (-> (->translator :de out-chan) component/start))
     (a/>!! (:ctrl-chan translator) {:topic "original"
                                     :language :en
                                     :content "Hello, World!"

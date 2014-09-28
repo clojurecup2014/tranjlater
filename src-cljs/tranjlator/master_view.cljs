@@ -17,8 +17,10 @@
     (when (not (= new-lang old-lang))
       (do
         (om/update! app :reading-language new-lang)
-        (put! sender-ch (m/->language-unsub user-name old-lang))
-        (put! sender-ch (m/->language-sub user-name new-lang))))))
+        (when-not (nil? old-lang)
+          (put! sender-ch (m/->language-unsub user-name old-lang)))
+        (when-not (nil? new-lang)
+          (put! sender-ch (m/->language-sub user-name new-lang)))))))
 
 (defn writing-language-change [e sender-ch app]
   (let [new-lang (.. e -target -value)]
@@ -102,7 +104,7 @@
                    (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
-                   (= lang topic) (om/transact! app :translated (fn [col] (conj col msg)))
+                   (= (str lang) (str topic)) (om/transact! app :translated (fn [col] (conj col msg)))
                    :default (println "RECVD:" msg "type: " (keys msg))))
                 (recur))))))
     om/IDidMount

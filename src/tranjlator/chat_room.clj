@@ -183,10 +183,11 @@
                          (log/warn "ChatRoom shutting down due to \"clojure\" channel closing")))
             ping ([{:keys [text target language user-name] :as msg}]
                     (if-not (nil? msg)
-                      (when-let [target-chan (get users target)]
-                        (>! pub-chan (msg/->chat user-name language text "ping"))
-                        (>! target-chan msg)
-                        (recur users history translators try-clj-cookie)))))))))
+                      (do (when-let [target-chan (get users target)]
+                            (>! pub-chan (msg/->chat user-name language text "ping"))
+                            (>! target-chan msg))
+                          (recur users history translators try-clj-cookie))
+                      (log/warn "ChatRoom shutting down due to \"ping\" channel closing"))))))))
   
   (stop [this]
     (a/close! pub-chan)

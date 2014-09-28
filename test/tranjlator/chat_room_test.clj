@@ -22,12 +22,13 @@
 (deftest test-user-join
   (testing "When a user joins, it receives the chat history."
     (let [chat-room (-> (->chat-room ["hi" "bye!"]) component/start)
-          user (chan)]
+          user (chan 1)]
 
       (p/send-msg chat-room (msg/->user-join "User") user)
-      (is (= "User" (:user-name (a/<!! user))))
-      (is (= "hi" (a/<!! user)))
-      (is (= "bye!" (a/<!! user)))))
+      (let [messages (set (map (fn [x] (if (map? x) (:user-name x) x))
+                               (for [i (range 4)]
+                                 (a/<!! user))))]
+        (is (= messages #{"User" "clojure" "hi" "bye!"})))))
 
   (testing "When a user joins, the other users receive a join message."
     (let [[user1 user2 user3 :as users] (make-users 3)
@@ -111,17 +112,31 @@
   (testing "When a user sends a clojure form all users see the form and the result as chat."
     (let [[user1 user2 user3 :as users] (make-users 3)
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
+          text1 "/clojure (+ 1 1)"
+          text2 "@clojure (+ 1 1)"
           form "(+ 1 1)"
           result "2"]
 
-      (p/send-msg chat-room (msg/->clojure form) (:chan user1))
+      (p/send-msg chat-room (msg/->clojure form text1) (:chan user1))
 
-      (are [x] (= (:content x) form)
+      (are [x] (= (:content x) text1)
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
 
-      (are [x] (= (:content x) result)
+      (are [x] (= (:content x) (clojure-response result))
+           (a/<!! (:chan user1))
+           (a/<!! (:chan user2))
+           (a/<!! (:chan user3)))
+
+      (p/send-msg chat-room (msg/->clojure form text2) (:chan user1))
+
+      (are [x] (= (:content x) text2)
+           (a/<!! (:chan user1))
+           (a/<!! (:chan user2))
+           (a/<!! (:chan user3)))
+
+      (are [x] (= (:content x) (clojure-response result))
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))))
@@ -130,15 +145,18 @@
     (let [[user] (make-users 1)
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])})
                         component/start)
-          form1 "(def foo (+ 1 1))"
+          text1 "/clojure (def foo (+ 1 1))"
+          form1 "(def foo (+ 1 1))\n"
+
+          text2 "@clojure foo"
           form2 "foo"
           value "2"]
 
-      (p/send-msg chat-room (msg/->clojure form1) (:chan user))
-      (p/send-msg chat-room (msg/->clojure form2) (:chan user))
+      (p/send-msg chat-room (msg/->clojure form1 text1) (:chan user))
+      (p/send-msg chat-room (msg/->clojure form2 text2) (:chan user))
 
       (a/<!! (:chan user)) ;; drop broadcast of form1
       (a/<!! (:chan user)) ;; drop result of form1
 
       (a/<!! (:chan user)) ;; drop broadcast of form2
-      (is (= value (:content (a/<!! (:chan user))))))))
+      (is (= (:content (a/<!! (:chan user))) (clojure-response value))))))

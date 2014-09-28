@@ -38,6 +38,16 @@
                   :original-sha "some other sha!"
                   :translated-sha "sha!"})))
 
+(def ^:const +clojure-username+ "clojure")
+
+(defn clojure-request
+  [command form]
+  (str command " " form))
+
+(defn clojure-response
+  [result]
+  (str ";; => " result))
+
 (defn create-translator
   [pub pub-chan language]
   (let [translator-chan (chan 1 (mock-translator language))]
@@ -78,7 +88,10 @@
         :initial-history initial-history
         :initial-users initial-users
         :process-chan
-        (go-loop [users initial-users, history initial-history, translators {}, try-clj-cookie nil]
+        (go-loop [users (assoc initial-users +clojure-username+ (chan 1 (remove (constantly true))))
+                  history initial-history,
+                  translators {},
+                  try-clj-cookie nil]
           (a/alt!
             user-join ([{:keys [sender user-name] :as msg}]
                          (log/infof "JOIN: %s" (pr-str msg))
@@ -136,15 +149,17 @@
                             (recur users history translators try-clj-cookie))
                         (log/warn "ChatRoom shutting down due to \"exists\" channel closing")))
 
-            clojure ([{:keys [form sender] :as msg}]
+            clojure ([{:keys [text body user-name] :as msg}]
                        (if-not (nil? msg)
-                         (let [expr-msg (msg/->chat "Clojure" "clojure" form "foo")
-                               query-result (try/query form try-clj-cookie)]
+                         (let [expr-msg (msg/->chat user-name "clojure"
+                                                    text
+                                                    "foo")
+                               query-result (try/query body try-clj-cookie)]
                            (>! pub-chan expr-msg)
                            (let [{:keys [result cookie]} (<! query-result)
-                                 result-msg (msg/->chat "Clojure"
+                                 result-msg (msg/->chat +clojure-username+
                                                          "clojure"
-                                                         (str ";; => " (:result result))
+                                                         (clojure-response (:result result))
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users

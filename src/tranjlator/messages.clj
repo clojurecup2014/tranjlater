@@ -40,9 +40,10 @@
    :msg msg})
 
 (defn ->clojure
-  [form]
+  [form text]
   {:topic :clojure
-   :form form})
+   :body form
+   :text text})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Server -> Client

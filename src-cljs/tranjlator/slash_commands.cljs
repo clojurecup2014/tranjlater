@@ -1,7 +1,7 @@
 (ns tranjlator.slash-commands)
 
-(def slash-command #"/([^\s]+)")
-(def slash-body #"/[^\s]+\s+(.*?)\s*$")
+(def slash-command #"[@/]([^\s]+)")
+(def slash-body #"[@/][^\s]+\s+(.*?)\s*$")
 
 (defn command-word
   [text]
@@ -17,7 +17,8 @@
 (defmethod command :clojure
   [text]
   {:topic :clojure
-   :form (command-body text)})
+   :text text
+   :body (command-body text)})
 
 (defmethod command :default
   [text]

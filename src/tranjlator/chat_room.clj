@@ -81,8 +81,8 @@
                                                                   @token))]
             (>! chan (msg/->translation (:language translator)
                                         translation
-                                        (xlate/sha-hex orig-sha)
-                                        (xlate/sha-hex trans-sha)
+                                        (xlate/bin->hex orig-sha)
+                                        (xlate/bin->hex trans-sha)
                                         (:user-name h)))
             (log/infof "XLATE HISTORY: %s" translation))))))
 

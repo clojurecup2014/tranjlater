@@ -13,13 +13,8 @@
                    :translator (->translator :de (chan 1))))
           translator (get-in system [:translator])]
       (a/>!! (:ctrl-chan translator)
-             {:content "Hello" :language "en"})
+             {:content "Hello" :language "en"
+              :content-sha "9B71D224BD62F3785D96D46AD3EA3D73319BFBC2890CAADAE2DFF72519673CA72323C3D99BA5C11D7C7ACC6E14B8C5DA0C4663475C2E5C3ADEF46F73BCDEC043"})
       (is (= "Hallo"
              (:content (a/<!! (:out-chan translator))))))))
 
-(deftest t-store-translations
-
-  (testing "check datomic for translation"
-    )
-
-  (testing ""))

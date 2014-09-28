@@ -26,9 +26,13 @@
   [s]
   (sha512-bytes ((fnil lower-case "") s)))
 
-(defn sha-hex
+(defn bin->hex
   [^bytes b]
   (javax.xml.bind.DatatypeConverter/printHexBinary b))
+
+(defn hex->bin
+  [^String s]
+  (javax.xml.bind.DatatypeConverter/parseHexBinary s))
 
 (defn expired?
   [{:keys [expires] :as token}]
@@ -49,7 +53,7 @@
                    [?e :translation/sha ?trans-sha]
                    [(java.util.Arrays/equals ^bytes ?sha ^bytes ?org-sha)]]
                  (db conn) sha from to)]
-      (log/info "datomic query response:" res)
+      (log/info "Datomic query response:" res)
       (first res))))
 
 ;; Bing API
@@ -101,28 +105,29 @@
      (translate! (access-token) text from to db))
   ([access-token text from to db]
      (log/info "entering translate!")
-     (let [result-chan (chan 1)]
+     (let [result-chan (chan 1)
+           sha (sha-bytes text)]
        (go
-         (let [text-sha (sha-bytes text)]
-           (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) text-sha from to))]
-             (do (log/info "datomic translation:" resp)
-                 (>! result-chan  resp))
-             (do
-               (log/info "gotta lookup")
-               (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
-                         {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
-                                                                     (:token (<! access-token))
-                                                                     access-token))}
-                          :query-params {:text text
-                                         :from (name from)
-                                         :to   (name to)}}
-                         #(let [trans (parse-translation %)
-                                trans-sha (sha-bytes trans)
-                                _ (log/info "translation:" [trans trans-sha])]
-                            (log/info "transacting:" (translation-tx text text-sha from to trans trans-sha))
-                            @(d/transact (:conn db) (translation-tx text text-sha from to trans trans-sha))
-                            (a/put! result-chan [trans text-sha trans-sha])
-))))))
+         (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) sha from to))]
+           (do (log/info "Datomic translation:" resp)
+               (>! result-chan  resp))
+           (do
+             (log/info "Querying Microsoft translation service..")
+             (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
+                       {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
+                                                                   (:token (<! access-token))
+                                                                   access-token))}
+                        :query-params {:text text
+                                       :from (name from)
+                                       :to   (name to)}}
+                       #(let [trans (parse-translation %)
+                              trans-sha (sha-bytes trans)
+                              _ (log/info "Bing translation:" [trans trans-sha])
+                              tx-data (translation-tx text sha from to trans trans-sha)]
+                          (when trans
+                            (log/info "transacting:" tx-data)
+                            @(d/transact (:conn db)  tx-data))
+                          (a/put! result-chan [trans sha trans-sha]))))))
        result-chan)))
 
 
@@ -145,8 +150,8 @@
                                                                         db))]
                          (>! out-chan (->translation language
                                                      trans
-                                                     (doto (sha-hex   org-sha) (->> pr-str (log/info "Origin-SHA:")))
-                                                     (doto (sha-hex trans-sha) (->> pr-str (log/info "trans-SHA:")))
+                                                     (doto (bin->hex  org-sha) (->> pr-str (log/info "Origin-SHA:")))
+                                                     (doto (bin->hex trans-sha) (->> pr-str (log/info "trans-SHA:")))
                                                      (:user-name msg)))
                          (recur token)))))))
 
@@ -170,7 +175,6 @@
   ([api-creds language out-chan]
      (component/using (->Translator api-creds language nil nil out-chan nil)
                       [:db])))
-                              
 
 
 ;; unused
@@ -226,23 +230,11 @@
   (a/<!! (access-token))
   (a/<!! (translate! "Hello, World." :en :de))
 
-  (def translator (-> (->translator :de out-chan) component/start))
-
-  (let [out-chan (chan 1)]
-    (a/>!! (:ctrl-chan translator) {:topic "original"
-                                    :language :en
-                                    :content "Hello, World!"
-                                    :content-sha "foo"
-                                    :original-sha "foo"
-                                    :user-name "bar"})
-    (a/<!! out-chan))
-
-  
   (def sys
     (component/start
      (component/system-map
       :db (->db)
       :translator (->translator :de (chan 1)))))
 
-  (a/>!! (get-in sys [:translator :ctrl-chan])
+  (a/>!! (:ctrl-chan (:translator sys))
          {:language :en :content "Hello"}))

@@ -23,7 +23,7 @@
                  [om "0.7.3"]
                  [http-kit "2.1.16"]
                  [ring-cors "0.1.0"]
-                 [com.datomic/datomic-free "0.9.4899"]
+                 [com.datomic/datomic-free "0.9.4699"]
                  [pandect "0.4.0"]]
   :cljsbuild {:builds
               [{:builds nil

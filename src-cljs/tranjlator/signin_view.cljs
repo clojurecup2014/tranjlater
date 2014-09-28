@@ -23,9 +23,12 @@
     (render-state [this {:keys [text] :as state}]
       (let [sender-ch (:sender-ch app)]
         (dom/div nil
-                 (dom/div #js {:className "alert alert-info col-md-8"}
-                          (dom/p nil "Welcome to Tranjlator a chat room that lets you read the conversation translated into a language of your choosing.")
-                          (dom/p nil "Choose a screen name to get started."))
+                 (if-let [poor-soul (:dissappointed-user app)]
+                   (dom/div #js {:className "alert alert-danger"}
+                            (dom/p nil "I am sorry " poor-soul " but that screen name is already in use. Please try another." ))
+                   (dom/div #js {:className "alert alert-info col-md-8"}
+                            (dom/p nil "Welcome to Tranjlator a chat room that lets you read the conversation translated into a language of your choosing.")
+                            (dom/p nil "Choose a screen name to get started.")))
                  (dom/div #js {:className "panel panel-default col-md-6 col-md-offset-1"}
                           (dom/div #js {:className "panel-heading"}
                                    (dom/div #js {:className "panel-title"}

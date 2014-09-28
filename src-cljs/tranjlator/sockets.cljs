@@ -23,15 +23,24 @@
        (>! server-ch msg)
        (recur)))))
 
-(defn make-socket [listener-ch sender-ch user-name]
+(defn close-socket [socket]
+  (.close socket)
+  (.dispose socket))
+
+(defn make-socket [listener-ch sender-ch user-name ctrl-chan]
   (let [ws (doto (WebSocket.)
              (.open (str "ws://" (.. js/window -location -host) +ws-url+ user-name)))]
 
-    (evt/listen ws (.-CLOSED EventType)  #(do (a/close! listener-ch)
-                                              (a/close! sender-ch)))
+    (evt/listen ws (.-CLOSED EventType)  #(do #_(a/close! listener-ch)
+                                              #_(a/close! sender-ch)))
     (evt/listen ws (.-OPENED EventType)  #(println "WS Connected"))
     (evt/listen ws (.-MESSAGE EventType) #(a/put! listener-ch (read-string (.-message %))))
-    (evt/listen ws (.-ERROR EventType )  #(println "WS Error:" %))
+    (evt/listen ws (.-ERROR EventType )  #(do (println "WS Error:" %)
+                                              (close-socket ws)))
+
+    (go
+     (<! ctrl-chan)
+     (close-socket ws))
 
     (go-loop []
       (let [timeout (a/timeout 15000)]

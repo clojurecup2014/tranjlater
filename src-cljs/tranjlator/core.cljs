@@ -19,8 +19,10 @@
                       :translated []
                       :users []
                       :user-name nil
+                      :dissappointed-user nil
                       :listener-ch (chan)
                       :sender-ch (chan)
+                      :socket-ctrl (chan)
                       :reading-language nil
                       :writing-language "en"}))
 

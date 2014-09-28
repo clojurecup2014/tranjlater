@@ -94,8 +94,9 @@
     om/IWillMount
     (will-mount [_]
       (let [listener-ch (:listener-ch app)
-            sender-ch (:sender-ch app)]
-        (make-socket listener-ch sender-ch (:user-name app))
+            sender-ch (:sender-ch app)
+            socket-ctrl (:socket-ctrl app)]
+        (make-socket listener-ch sender-ch (:user-name app) socket-ctrl)
         (go (loop []
               (when-let [msg (<! listener-ch)]
                 (let [topic (:topic msg)
@@ -104,7 +105,11 @@
                    (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
-                   (= (keyword lang)  topic) (om/transact! app :translated (fn [col] (conj col msg)))
+                   (= (keyword lang) topic) (om/transact! app :translated (fn [col] (conj col msg)))
+                   (= :error topic) (do (let [name (:user-name @app)]
+                                          (put! socket-ctrl "Doh")
+                                          (om/update! app :dissappointed-user name)
+                                          (om/update! app :user-name nil)))
                    :default (println "RECVD:" msg "type: " (keys msg))))
                 (recur))))))
     om/IDidMount

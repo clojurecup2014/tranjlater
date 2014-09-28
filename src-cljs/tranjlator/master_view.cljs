@@ -1,17 +1,33 @@
 (ns tranjlator.master-view
-  (:require [cljs.core.async :refer [<! >!] :as a]
+  (:require [cljs.core.async :refer [<! >! put!] :as a]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [tranjlator.actions :refer [check-for-enter post-message clear-text
                                         text-entry]]
-            [tranjlator.sockets :refer [make-socket]])
+            [tranjlator.sockets :refer [make-socket]]
+            [tranjlator.langs :refer [+langs+]]
+            [tranjlator.messages :as m])
   (:require-macros [cljs.core.async.macros :refer [go-loop go alt!]]))
+
+(defn reading-language-change [e sender-ch app]
+  (let [new-lang (.. e -target -value)
+        old-lang (:reading-language @app)
+        user-name (:user-name @app)]
+    (when (not (= new-lang old-lang))
+      (do
+        (om/update! app :reading-language new-lang)
+        (put! sender-ch (m/->language-unsub user-name old-lang))
+        (put! sender-ch (m/->language-sub user-name new-lang))))))
+
+(defn writing-language-change [e sender-ch app]
+  (let [new-lang (.. e -target -value)]
+    (om/update! app :writing-language new-lang)))
 
 (defn send-message-click [sender-ch text owner app]
   (do
     (post-message sender-ch
                   {:topic :original
-                   :language "foo"
+                   :language (:writing-language @app)
                    :content text
                    :content-sha "foo"
                    :original-sha "foo"
@@ -51,7 +67,7 @@
                           (dom/div #js {:className "panel-body"}
                                    (apply dom/ul #js {:className "list-group"}
                                           (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item)
-                                                                 (dom/span #js {:className "badge"} (if show-lan (:language item))))) app)))))))))
+                                                                 (dom/span #js {:className "badge"} (if show-lan (name (:language item)))))) app)))))))))
 
 (defn master-view [app owner]
   (reify
@@ -81,12 +97,25 @@
                  (om/build chat-view (:translated app) {:init-state {:label " Translated"
                                                                      :glyph "glyphicon glyphicon-home"
                                                                      :show-language false}})
-                 (dom/div #js {:className "form-group col-md-8 col-md-offset-2"}
+                 (dom/div #js {:className "form-group col-md-4 col-md-offset-2"}
                           (dom/input #js {:className "form-control" :type "text"
                                           :value text
                                           :onKeyPress (fn [e] (check-for-enter e owner state app send-message-click))
-                                          :onChange #(text-entry % owner state)}))
-                 (dom/div #js {:className "col-xs-offset-2 col-xs-10"}
+                                          :onChange #(text-entry % owner state)})
+                          (dom/select #js {:className "form-control"
+                                           :value (:writing-language app)
+                                           :onChange (fn [e] (writing-language-change e sender-ch app))}
+                                      (dom/option #js {:value :ar} "Arabic")
+                                      (dom/option #js {:value :en :selected :selected} "English")
+                                      (dom/option #js {:value :fr} "French")))
+                 (dom/div #js {:className "col-xs-offset-2 col-xs-4"}
                           (dom/button #js {:type "button" :className "btn btn-primary"
                                            :onClick (fn [e] (send-message-click sender-ch text owner app))}
-                                      (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter")))))))
+                                      (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter")
+                          (dom/select #js {:className "form-control"
+                                           :value (:reading-language app)
+                                           :onChange (fn [e] (reading-language-change e sender-ch app))}
+                                      (dom/option #js {:value nil :selected :selected} "" )
+                                      (dom/option #js {:value :ar} "Arabic")
+                                      (dom/option #js {:value :en} "English")
+                                      (dom/option #js {:value :fr} "French"))))))))

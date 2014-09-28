@@ -77,6 +77,7 @@
           exists (chan 10)
           chat (chan 10)
           clojure (chan 10)
+          ping (chan 10)
           language-sub (chan 10)
           language-unsub (chan 10)
           initial-history (or initial-history [])]
@@ -86,6 +87,7 @@
       (a/sub pub :original chat)
       (a/sub pub :exists? exists)
       (a/sub pub :clojure clojure)
+      (a/sub pub :ping ping)
       
       (a/sub pub :language-sub language-sub)
       (a/sub pub :language-unsub language-unsub)
@@ -178,7 +180,13 @@
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users history translators cookie)))
-                         (log/warn "ChatRoom shutting down due to \"clojure\" channel closing"))))))))
+                         (log/warn "ChatRoom shutting down due to \"clojure\" channel closing")))
+            ping ([{:keys [text target language user-name] :as msg}]
+                    (if-not (nil? msg)
+                      (when-let [target-chan (get users target)]
+                        (>! pub-chan (msg/->chat user-name language text "ping"))
+                        (>! target-chan msg)
+                        (recur users history translators try-clj-cookie)))))))))
   
   (stop [this]
     (a/close! pub-chan)

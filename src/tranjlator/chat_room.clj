@@ -31,13 +31,16 @@
 
 
 (defn mock-translator
-  [language]
-  (map #(merge % {:topic language
-                  :language language
-                  :content (format "This will be translated to: %s!" (pr-str language) )
-                  :content-sha "sha!"
-                  :original-sha "some other sha!"
-                  :translated-sha "sha!"})))
+  [pub pub-chan language]
+  (let [translator-chan (chan 1 (map #(merge % {:topic language
+                                                :language language
+                                                :content (format "This will be translated to: %s!" (pr-str language) )
+                                                :content-sha "sha!"
+                                                :original-sha "some other sha!"
+                                                :translated-sha "sha!"})))]
+    (a/sub pub :original translator-chan)
+    (a/pipe translator-chan pub-chan)
+    translator-chan))
 
 (def ^:const +clojure-username+ "clojure")
 
@@ -62,7 +65,7 @@
     translator))
 
 (defrecord ChatRoom
-    [initial-users initial-history pub-chan process-chan]
+    [initial-users initial-history pub-chan process-chan mock-translator?]
 
   component/Lifecycle
   (start [this]
@@ -134,7 +137,9 @@
                                 (>! chan msg)
                                 (recur users history
                                        (if-not (contains? translators language)
-                                         (try (assoc translators language (create-translator pub pub-chan language))
+                                         (try (assoc translators language (if mock-translator?
+                                                                            (mock-translator pub pub-chan language)
+                                                                            (create-translator pub pub-chan language)))
                                               (catch Throwable _
                                                 (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
                                                 translators))
@@ -194,7 +199,7 @@
   ([]
      (->chat-room []))
   ([history]
-     (->ChatRoom nil history nil nil)))
+     (->ChatRoom nil history nil nil nil)))
 
 (comment
   (require '[tranjlator.messages :refer :all])

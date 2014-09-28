@@ -79,7 +79,9 @@
 (deftest test-language-sub
   (testing "When a user subscribes to a given language, it starts receiving translations to that language."
     (let [[user] (make-users 1)
-          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])
+                                        :mock-translator? true})
+                        component/start)]
 
       (p/send-msg chat-room (msg/->language-sub (:name user) :de) (:chan user))
       (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation
@@ -93,7 +95,9 @@
 (deftest test-language-unsub
   (testing "When a user unsubscribes to a given language, it stops receiving translations to that language."
     (let [[user] (make-users 1)
-          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])
+                                        :mock-translator? true})
+                        component/start)]
 
       (p/send-msg chat-room (msg/->language-sub (:name user) :de) (:chan user))
       (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation

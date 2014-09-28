@@ -217,23 +217,11 @@
   (a/<!! (access-token))
   (a/<!! (translate! "Hello, World." :en :de))
 
-  (def translator (-> (->translator :de out-chan) component/start))
-
-  (let [out-chan (chan 1)]
-    (a/>!! (:ctrl-chan translator) {:topic "original"
-                                    :language :en
-                                    :content "Hello, World!"
-                                    :content-sha "foo"
-                                    :original-sha "foo"
-                                    :user-name "bar"})
-    (a/<!! out-chan))
-
-  
   (def sys
     (component/start
      (component/system-map
       :db (->db)
       :translator (->translator :de (chan 1)))))
 
-  (a/>!! (get-in sys [:translator :ctrl-chan])
+  (a/>!! (:ctrl-chan (:translator sys))
          {:language :en :content "Hello"}))

@@ -31,9 +31,12 @@
   (reify
     om/IRenderState
     (render-state [this state]
-      (let [label (om/get-state owner :label)]
+      (let [label (om/get-state owner :label)
+            glyph (om/get-state owner :glyph)]
         (dom/div #js {:className "col-md-5"}
-                 (dom/h4 nil label)
+                 (dom/h4 nil
+                         (dom/span #js {:className glyph})
+                         label)
                  (apply dom/ul nil
                         (map (fn [item] (dom/li nil (format-chat item))) app)))))))
 
@@ -47,8 +50,10 @@
       (let [sender-ch (:sender-ch app)]
         (dom/div nil
                  (om/build users-view (:users app))
-                 (om/build chat-view (:original app) {:init-state {:label "Original"}})
-                 (om/build chat-view (:translated app) {:init-state {:label "Translated"}})
+                 (om/build chat-view (:original app) {:init-state {:label " Original"
+                                                                   :glyph "glyphicon glyphicon-globe"}})
+                 (om/build chat-view (:translated app) {:init-state {:label " Translated"
+                                                                     :glyph "glyphicon glyphicon-home"}})
                  (dom/div #js {:className "form-group col-md-8 col-md-offset-2"}
                           (dom/input #js {:className "form-control" :type "text"
                                           :value text
@@ -57,4 +62,4 @@
                  (dom/div #js {:className "col-xs-offset-2 col-xs-10"}
                           (dom/button #js {:type "button" :className "button"
                                            :onClick (fn [e] (send-message-click sender-ch text owner app))}
-                                      "Enter")))))))
+                                      (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter")))))))

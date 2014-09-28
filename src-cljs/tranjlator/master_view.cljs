@@ -10,6 +10,10 @@
             [tranjlator.slash-commands :refer [command]])
   (:require-macros [cljs.core.async.macros :refer [go-loop go alt!]]))
 
+(defn ping []
+  (let [clip (.getElementById js/document "ping-sound")]
+    (.play clip)))
+
 (defn reading-language-change [e sender-ch app]
   (let [new-lang (.. e -target -value)
         old-lang (:reading-language @app)
@@ -106,6 +110,7 @@
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
                    (= (keyword lang) topic) (om/transact! app :translated (fn [col] (conj col msg)))
+                   (= :ping topic) (ping)
                    (= :error topic) (do (let [name (:user-name @app)]
                                           (put! socket-ctrl "Doh")
                                           (om/update! app :sender-ch (chan))

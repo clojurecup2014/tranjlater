@@ -9,10 +9,10 @@
             [clojure.core.async.impl.protocols :as impl]
             [tranjlator.datomic :refer [->db]]
             [datomic.api :as d :refer [db q]]
-            [pandect.core :refer [sha512-bytes sha512]]
             [clojure.string :refer [lower-case]]
             [tranjlator.messages :refer [->translation]]
-            [tranjlator.protocols :as p]))
+            [tranjlator.protocols :as p])
+  (:import [java.security MessageDigest]))
                                                           
 (def +creds+
   {:client-id "clojure-cup-tranjlator"
@@ -24,7 +24,9 @@
 
 (defn sha-bytes
   [s]
-  (sha512-bytes ((fnil lower-case "") s)))
+  (-> (doto (MessageDigest/getInstance "SHA-256")
+        (.update (.getBytes s "UTF-8")))
+      .digest))
 
 (defn bin->hex
   [^bytes b]

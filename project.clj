@@ -23,8 +23,7 @@
                  [om "0.7.3"]
                  [http-kit "2.1.16"]
                  [ring-cors "0.1.0"]
-                 [com.datomic/datomic-free "0.9.4699"]
-                 [pandect "0.4.0"]]
+                 [com.datomic/datomic-free "0.9.4699"]]
   :cljsbuild {:builds
               [{:builds nil
                 :source-paths ["src-cljs"]
@@ -34,15 +33,6 @@
                  :output-to "resources/public/js/main.js"}}]}
   :profiles {:uberjar {:aot :all
                        :main tranjlator.core
-                       :cljsbuild
-                       {:builds[{:builds nil
-                                 :source-paths ["src-cljs"]
-                                 :compiler
-                                 {:pretty-print false
-                                  :preamble ["react/react.min.js"]
-                                  :externs ["react/externs/react.js"]
-                                  :output-to "resources/public/js/main.js"
-                                  :optimizations :advanced}}]}
                        :hooks [leiningen.cljsbuild]}
 
              :dev {:source-paths ["dev"]

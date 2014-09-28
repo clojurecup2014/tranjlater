@@ -1,6 +1,6 @@
 (ns tranjlator.hashing
   (:refer-clojure :exclude [hash])
-  (:import [goog.crypt Sha512]))
+  (:import [goog.crypt Sha256]))
 
 (def ^:const +hex-chars+ [\0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \A \B \C \D \E \F])
 
@@ -17,5 +17,5 @@
 
 (defn hash
   [s]
-  (.digest (doto (Sha512.)
+  (.digest (doto (Sha256.)
              (.update s))))

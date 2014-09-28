@@ -32,7 +32,7 @@
   [language]
   (map #(merge % {:topic language
                   :language language
-                  :content language
+                  :content (format "This will be translated to: %s!" (pr-str language) )
                   :content-sha "sha!"
                   :original-sha "some other sha!"
                   :translated-sha "sha!"})))
@@ -40,7 +40,9 @@
 (defn create-translator
   [pub pub-chan language]
   (let [translator-chan (chan 1 (mock-translator language))]
-    ))
+    (a/sub pub :original translator-chan)
+    (a/pipe translator-chan pub-chan)
+    translator-chan))
 
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan]
@@ -62,7 +64,7 @@
       (a/sub pub :original chat)
       (a/sub pub :exists? exists)
 
-      (a/sub pub :langauge-sub language-sub)
+      (a/sub pub :language-sub language-sub)
       (a/sub pub :language-unsub language-unsub)
 
       (doseq [[name chan] initial-users]
@@ -101,12 +103,13 @@
                       (log/warn "ChatRoom shutting down due to \"chat\" channel closing")))
 
             language-sub ([{:keys [language user-name] :as msg}]
-                            (log/infof "LANG-SUB: %s" (pr-str msg))
+                            (log/infof "LANG-SUB: %s users: %s" (pr-str msg) (pr-str users))
                             (if-not (nil? msg)
                               (when-let [chan (get users user-name)]
                                 (a/sub pub language chan)
+                                (>! chan msg)
                                 (recur users history (if-not (contains? translators language)
-                                                       (assoc translators (create-translator pub language))
+                                                       (assoc translators language (create-translator pub pub-chan language))
                                                        translators)))
                               (log/warn "ChatRoom shutting down due to \"language-sub\" channel closing")))
 

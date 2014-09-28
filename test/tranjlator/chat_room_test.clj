@@ -3,7 +3,9 @@
   (:require [clojure.core.async :as a :refer [go-loop chan <! >!]]
             [com.stuartsierra.component :as component]
             [tranjlator.messages :as msg]
-            [tranjlator.protocols :as p]))
+            [tranjlator.protocols :as p]
+
+            [taoensso.timbre :as log]))
 
 (defn test-chat
   [user msg]
@@ -72,3 +74,18 @@
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3))))))
+
+(deftest test-language-sub
+  (testing "When a user subscribes to a given language, it starts receiving translations to that language."
+    (let [[user] (make-users 1)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
+
+      (p/send-msg chat-room (doto (msg/->language-sub (:name user) :de) (->> (log/info "sub msg:"))) (:chan user))
+      (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation
+      (p/send-msg chat-room (test-chat user "hello") (:chan user))
+
+      (let [messages (group-by :topic [(doto (a/<!! (:chan user)) (->> (log/info "RECV:")))
+                                       (doto (a/<!! (:chan user)) (->> (log/info "RECV:")))])]
+        (log/info "messages:" messages)
+        (is (= "hello" (get-in messages [:original 0 :content])))
+        (is (= "This will be translated to: :de!" (get-in messages [:de 0 :content])))))))

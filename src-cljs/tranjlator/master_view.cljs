@@ -1,5 +1,5 @@
 (ns tranjlator.master-view
-  (:require [cljs.core.async :refer [<! >! put! timeout] :as a]
+  (:require [cljs.core.async :refer [<! >! put! timeout chan] :as a]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [tranjlator.actions :refer [check-for-enter post-message clear-text
@@ -108,6 +108,8 @@
                    (= (keyword lang) topic) (om/transact! app :translated (fn [col] (conj col msg)))
                    (= :error topic) (do (let [name (:user-name @app)]
                                           (put! socket-ctrl "Doh")
+                                          (om/update! app :sender-ch (chan))
+                                          (om/update! app :listener-ch (chan))
                                           (om/update! app :dissappointed-user name)
                                           (om/update! app :user-name nil)))
                    :default (println "RECVD:" msg "type: " (keys msg))))

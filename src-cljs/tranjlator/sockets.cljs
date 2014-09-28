@@ -31,8 +31,8 @@
   (let [ws (doto (WebSocket.)
              (.open (str "ws://" (.. js/window -location -host) +ws-url+ user-name)))]
 
-    (evt/listen ws (.-CLOSED EventType)  #(do #_(a/close! listener-ch)
-                                              #_(a/close! sender-ch)))
+    (evt/listen ws (.-CLOSED EventType)  #(do (a/close! listener-ch)
+                                              (a/close! sender-ch)))
     (evt/listen ws (.-OPENED EventType)  #(println "WS Connected"))
     (evt/listen ws (.-MESSAGE EventType) #(a/put! listener-ch (read-string (.-message %))))
     (evt/listen ws (.-ERROR EventType )  #(do (println "WS Error:" %)

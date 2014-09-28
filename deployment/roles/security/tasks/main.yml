@@ -1,0 +1,14 @@
+---
+- name: update bash to protect from shellshock
+  apt: name=bash state=latest update_cache=yes
+  when: ansible_distribution=='Ubuntu' and ansible_distribution_version=='14.04'
+
+# https://gist.github.com/kacy/2b9408af04c71fab686e
+- name: ensure bash is not vulnerable to 201409 problem
+  command: env x='() { :;}; echo vulnerable' bash -c "echo this is a test"
+  register: command_result
+  failed_when: "'vulnerable' in command_result.stdout"
+
+
+#- name: relink libraries
+  #command: /sbin/ldconfig

@@ -24,19 +24,6 @@
 
 (defn view-picker [app owner]
   (reify
-    om/IWillMount
-    (will-mount [_]
-      (let [listener-ch (:listener-ch app)
-            sender-ch (:sender-ch app)]
-        (make-socket listener-ch sender-ch)
-        (go (loop []
-              (let [msg (<! listener-ch)
-                    topic (get-in msg [:message :topic])]
-                (cond
-                 (= :original topic) (om/transact! app :original (fn [col] (conj col (:message msg))))
-                 (= :user-join topic) (om/transact! app :users (fn [col] (conj col (get-in msg [:message :user-name]))))
-                 :default (println "RECVD:" msg))
-                (recur))))))
     om/IRender
     (render [_]
       (dom/div #js {:className "container"}

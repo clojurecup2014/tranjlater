@@ -1,0 +1,13 @@
+- hosts: all
+
+  remote_user: root
+  sudo: yes
+
+  pre_tasks:
+    - apt: update_cache=yes
+
+  roles:
+    - angstwad.docker_ubuntu
+    - security
+    - tranjlater
+

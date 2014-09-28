@@ -8,3 +8,5 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 /resources/public/js/main.js
+deployment/hosts
+deployment/.vault_password.txt

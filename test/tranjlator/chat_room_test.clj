@@ -2,11 +2,14 @@
   (:use clojure.test tranjlator.chat-room)
   (:require [clojure.core.async :as a :refer [go-loop chan <! >!]]
             [com.stuartsierra.component :as component]
-            [tranjlator.messages :as msg]))
+            [tranjlator.messages :as msg]
+            [tranjlator.protocols :as p]
+
+            [taoensso.timbre :as log]))
 
 (defn test-chat
   [user msg]
-  (msg/->chat "english" msg "foo" (:name user)))
+  (msg/->chat (:name user) "english" msg "foo"))
 
 (defn make-users
   [num-users]
@@ -20,7 +23,8 @@
   (testing "When a user joins, it receives the chat history."
     (let [chat-room (-> (->chat-room ["hi" "bye!"]) component/start)
           user (chan)]
-      (send-msg chat-room (msg/->user-join "User") user)
+
+      (p/send-msg chat-room (msg/->user-join "User") user)
       (is (= "User" (:user-name (a/<!! user))))
       (is (= "hi" (a/<!! user)))
       (is (= "bye!" (a/<!! user)))))
@@ -30,7 +34,9 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users (butlast users))})
                         component/start)
           join-message (msg/->user-join (:name user3))]
-      (send-msg chat-room join-message (:chan user3))
+
+      (p/send-msg chat-room join-message (:chan user3))
+
       (is (= join-message (dissoc (a/<!! (:chan user1)) :sender)))
       (is (= join-message (dissoc (a/<!! (:chan user2)) :sender))))))
 
@@ -40,21 +46,21 @@
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
           part-msg (msg/->user-part (:name user1))]
 
-      (send-msg chat-room part-msg (:chan user1))
+      (p/send-msg chat-room part-msg (:chan user1))
 
       (is (= part-msg (dissoc (a/<!! (:chan user2)) :sender)))
       (is (= part-msg (dissoc (a/<!! (:chan user3)) :sender))))))
 
 (deftest test-user-chat
-  (testing "When a user chats only the other users see it."
+  (testing "When a user chats all the users see it."
     (let [[user1 user2 user3 :as users] (make-users 3)
           chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
           chats ["hi!" "what?!?" "I love lamp!"]]
 
       (doseq [[c u] (map vector chats users)]
-        (send-msg chat-room (test-chat u c) (:chan u)))
+        (p/send-msg chat-room (test-chat u c) (:chan u)))
 
-      (are [x] (and (= (:content x) (first chats)))
+      (are [x] (= (:content x) (first chats))
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3)))
@@ -68,3 +74,35 @@
            (a/<!! (:chan user1))
            (a/<!! (:chan user2))
            (a/<!! (:chan user3))))))
+
+(deftest test-language-sub
+  (testing "When a user subscribes to a given language, it starts receiving translations to that language."
+    (let [[user] (make-users 1)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
+
+      (p/send-msg chat-room (msg/->language-sub (:name user) :de) (:chan user))
+      (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation
+      (p/send-msg chat-room (test-chat user "hello") (:chan user))
+
+      (let [messages (group-by :topic [(a/<!! (:chan user)) (a/<!! (:chan user))])]
+
+        (is (= "hello" (get-in messages [:original 0 :content])))
+        (is (= "This will be translated to: :de!" (get-in messages [:de 0 :content])))))))
+
+(deftest test-language-unsub
+  (testing "When a user unsubscribes to a given language, it stops receiving translations to that language."
+    (let [[user] (make-users 1)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])}) component/start)]
+
+      (p/send-msg chat-room (msg/->language-sub (:name user) :de) (:chan user))
+      (log/info "SUB-CONF:" (a/<!! (:chan user))) ;; throw away sub confirmation
+      (p/send-msg chat-room (msg/->language-unsub (:name user) :de) (:chan user))
+      (log/info "UNSUB-CONF:" (a/<!! (:chan user))) ;; throw away unsub confirmation
+      (p/send-msg chat-room (test-chat user "hello") (:chan user))
+
+      (is (= "hello" (:content (a/<!! (:chan user)))))
+
+      (let [timeout (a/timeout 1000)]
+        (a/alt!!
+          (:chan user) ([v] (is false (format "user recvd: %s. Should not have recvd anything." (pr-str v))))
+          timeout ([_] (is true)))))))

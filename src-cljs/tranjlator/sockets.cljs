@@ -23,12 +23,10 @@
        (>! server-ch msg)
        (recur)))))
 
-(defn make-socket [listener-ch sender-ch]
+(defn make-socket [listener-ch sender-ch user-name]
   (let [ws (doto (WebSocket.)
-             (.open (str "ws://" (.. js/window -location -host) +ws-url+)))]
+             (.open (str "ws://" (.. js/window -location -host) +ws-url+ user-name)))]
 
-    (.dir js/console ws)
-    (.dir js/console EventType)
     (evt/listen ws (.-CLOSED EventType)  #(do (a/close! listener-ch)
                                               (a/close! sender-ch)))
     (evt/listen ws (.-OPENED EventType)  #(println "WS Connected"))
@@ -38,18 +36,13 @@
     (go-loop []
       (let [timeout (a/timeout 15000)]
         (alt!
-          timeout (do ;; ping
-                    (recur))
+          timeout ([_]
+                     (.send ws (pr-str {:topic :ping}))
+                     (recur))
           sender-ch ([msg]
                        (if-not (nil? msg)
                          (do (.send ws (pr-str msg))
                              (recur))
                          (do (a/close! listener-ch)
                              (.close ws)
-                             (.disposeInternal ws)))))))
-
-    ;; (when ws-channel
-    ;;   (do
-    ;;     (handle-incoming listener-ch ws-channel)
-    ;;     (handle-outgoing sender-ch ws-channel)))
-    ))
+                             (.dispose ws)))))))))

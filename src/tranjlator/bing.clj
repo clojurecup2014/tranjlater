@@ -11,7 +11,7 @@
             [datomic.api :as d :refer [db q]]
             [pandect.core :refer [sha512-bytes]]
             [clojure.string :refer [lower-case]]))
-
+                                                  
 (def +creds+
   {:client-id "clojure-cup-tranjlator"
    :client-secret "yEyqkowDUzg2mRNDky0PsTIaby3iatg1XILEeKYKB9Y="})
@@ -154,7 +154,7 @@
    :ca {:code "ca" :name "Catalan"}
    :zh-CHS {:code "zh-CHS" :name "Chinese Simplified"}
    :zh-CHT {:code "zh-CHT" :name "Chinese Traditional"}
-   :cs {:code "cs" :name "Cezch"}
+   :cs {:code "cs" :name "Czech"}
    :da {:code "da" :name "Danish"}
    :nl {:code "nl" :name "Dutch"}
    :en {:code "en" :name "English"}

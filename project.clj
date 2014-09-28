@@ -15,6 +15,8 @@
                  [cheshire  "5.3.1"]
                  [org.clojure/data.xml "0.0.8"]
                  [org.clojure/tools.reader "0.8.9"]
+                 [cheshire  "5.3.1"]
+                 [org.clojure/data.xml "0.0.8"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [com.taoensso/timbre "3.3.1"]
                  [com.stuartsierra/component "0.2.2"]

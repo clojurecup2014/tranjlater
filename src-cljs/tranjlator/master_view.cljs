@@ -84,10 +84,14 @@
         (make-socket listener-ch sender-ch (:user-name app))
         (go (loop []
               (when-let [msg (<! listener-ch)]
-                (cond
-                 (= :original (:topic msg)) (om/transact! app :original (fn [col] (conj col msg)))
-                 (= :user-join (:topic msg)) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
-                 :default (println "RECVD:" msg "type: " (keys msg)))
+                (let [topic (:topic msg)
+                      lang (:reading-language @app)]
+                  (cond
+                   (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
+                   (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
+                   (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
+                   (= lang topic) (om/transact! app :translated (fn [col] (conj col msg)))
+                   :default (println "RECVD:" msg "type: " (keys msg))))
                 (recur))))))
     om/IInitState
     (init-state [_]

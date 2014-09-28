@@ -162,10 +162,7 @@
                                                          (clojure-response (:result result))
                                                         "foo")]
                              (>! pub-chan result-msg)
-                             (recur users
-                                    (conj history expr-msg result-msg)
-                                    translators
-                                    cookie)))
+                             (recur users history translators cookie)))
                          (log/warn "ChatRoom shutting down due to \"clojure\" channel closing"))))))))
   
   (stop [this]

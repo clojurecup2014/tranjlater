@@ -6,7 +6,8 @@
                                         text-entry]]
             [tranjlator.sockets :refer [make-socket]]
             [tranjlator.langs :refer [+langs+]]
-            [tranjlator.messages :as m])
+            [tranjlator.messages :as m]
+            [tranjlator.slash-commands :refer [command]])
   (:require-macros [cljs.core.async.macros :refer [go-loop go alt!]]))
 
 (defn reading-language-change [e sender-ch app]
@@ -25,14 +26,19 @@
 
 (defn send-message-click [sender-ch text owner app]
   (do
-    (post-message sender-ch
+    #_(post-message sender-ch
                   {:topic :original
                    :language (:writing-language @app)
                    :content text
                    :content-sha "foo"
                    :original-sha "foo"
                    :user-name (:user-name @app)})
-    (clear-text owner)))
+
+  (post-message sender-ch
+                (assoc (command text)
+                  :user-name (:user-name @app)))
+  (clear-text owner)))
+
 
 (defn users-view [app owner]
   (reify

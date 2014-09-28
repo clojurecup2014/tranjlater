@@ -164,3 +164,20 @@
 
       (a/<!! (:chan user)) ;; drop broadcast of form2
       (is (= (:content (a/<!! (:chan user))) (clojure-response value))))))
+
+(deftest test-ping
+  (testing "When a user sends a clojure form all users see the form and the result as chat."
+    (let [[user1 user2 user3 :as users] (make-users 3)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
+          text1 (format "/ping %s" (:name user2))
+          chat-msg (msg/->chat (:name user1) :en text1 "ping")
+          ping-msg (msg/->ping text1 (:name user2))]
+
+      (p/send-msg chat-room ping-msg (:chan user1))
+
+      (are [x] (= (:content x) text1)
+           (a/<!! (:chan user1))
+           (a/<!! (:chan user3)))
+
+      (is (= (dissoc (a/<!! (:chan user2)) :sender) ping-msg))
+      (is (= (:content (a/<!! (:chan user2))) (:content chat-msg))))))

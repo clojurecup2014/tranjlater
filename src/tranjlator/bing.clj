@@ -11,7 +11,8 @@
             [datomic.api :as d :refer [db q]]
             [pandect.core :refer [sha512-bytes sha512]]
             [clojure.string :refer [lower-case]]
-            [tranjlator.messages :refer [->translation]]))
+            [tranjlator.messages :refer [->translation]]
+            [tranjlator.protocols :as p]))
                                                           
 (def +creds+
   {:client-id "clojure-cup-tranjlator"
@@ -164,7 +165,15 @@
     (a/close! ctrl-chan)
     (a/close! out-chan)
     (a/<!!    work-chan)
-    (dissoc this :ctrl-chan :work-chan :out-chan)))
+    (dissoc this :ctrl-chan :work-chan :out-chan))
+
+  p/Token
+  (token [this]
+    (access-token api-creds))
+
+  p/Translate
+  (translate [this text src-lang token]
+    (translate! (:token token) text src-lang (:language this) db)))
 
 (defn ->translator
   ([language out-chan]

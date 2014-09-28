@@ -21,6 +21,8 @@
         user-name (:user-name @app)]
     (when (not (= new-lang old-lang))
       (do
+        (when (empty? (:translated @app))
+          (om/update! app :translated (into [] (:original @app))))
         (om/update! app :reading-language new-lang)
         (when-not (nil? old-lang)
           (put! sender-ch (m/->language-unsub user-name old-lang)))
@@ -33,7 +35,7 @@
 
 (defn send-message-click [sender-ch text owner app]
   (do
-    (let [sha (-> text hash hex-string)]
+    (let [sha (-> text .toLowerCase hash hex-string)]
       (post-message sender-ch
                     (assoc (command text)
                       :user-name (:user-name @app)
@@ -42,6 +44,12 @@
                       :content-sha sha)))
     (clear-text owner)))
 
+(defn replacer [col key val new-val ex-key ex-val]
+  (loop [src col acc []]
+    (cond (empty? src) (conj acc new-val)
+          (and (= (key (first src)) val)
+               (not (= (ex-key (first src)) ex-val))) (concat acc [new-val] (rest src))
+          :default (recur (rest src) (conj acc (first src))))))
 
 (defn users-view [app owner]
   (reify
@@ -95,8 +103,8 @@
     om/IDidUpdate
     (did-update [_ _ _]
       (let [panel (.getElementById js/document "translated-panel")]
-        (set! (.-scrollTop panel) (.-scrollHeight panel)))))
-  )
+        (set! (.-scrollTop panel) (.-scrollHeight panel))))))
+
 (defn master-view [app owner]
   (reify
     om/IWillMount
@@ -113,8 +121,10 @@
                    (= :original topic) (om/transact! app :original (fn [col] (conj col msg)))
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
-                   (= (keyword lang) topic) (om/transact! app :translated (fn [col] (conj col msg)))
-                   (= :ping topic) (when (= (:user-name msg) (:user-name @app)) (ping))
+                   (= (keyword lang) topic) (om/transact! app :translated
+                                                          (fn [col] (replacer col :original-sha
+                                                                             (:original-sha msg) msg :topic topic)))
+                   (= :ping topic) (when (= (:target msg) (:user-name @app)) (ping))
                    (= :error topic) (do (let [name (:user-name @app)]
                                           (put! socket-ctrl "Doh")
                                           (om/update! app :sender-ch (chan))

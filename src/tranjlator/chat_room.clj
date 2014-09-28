@@ -65,6 +65,27 @@
     (a/pipe translation-msg-chan pub-chan)
     translator))
 
+(defn try-create-translator
+  [language pub pub-chan db]
+  (try (create-translator pub pub-chan language db)
+       (catch Throwable _ nil)))
+
+(defn send-translation-history
+  [chan history translator]
+  (let [token (promise)]
+    (a/take! (p/token translator) #(deliver token %))
+    (doseq [h history]
+      (go (let [[translation orig-sha trans-sha] (<! (p/translate translator
+                                                                  (:content h)
+                                                                  (:language h)
+                                                                  @token))]
+            (>! chan (msg/->translation (:language translator)
+                                        translation
+                                        (xlate/sha-hex orig-sha)
+                                        (xlate/sha-hex trans-sha)
+                                        (:user-name h)))
+            (log/infof "XLATE HISTORY: %s" translation))))))
+
 (defrecord ChatRoom
     [initial-users initial-history pub-chan process-chan mock-translator? db]
 
@@ -77,6 +98,7 @@
           exists (chan 10)
           chat (chan 10)
           clojure (chan 10)
+          ping (chan 10)
           language-sub (chan 10)
           language-unsub (chan 10)
           initial-history (or initial-history [])]
@@ -86,6 +108,7 @@
       (a/sub pub :original chat)
       (a/sub pub :exists? exists)
       (a/sub pub :clojure clojure)
+      (a/sub pub :ping ping)
       
       (a/sub pub :language-sub language-sub)
       (a/sub pub :language-unsub language-unsub)
@@ -134,18 +157,16 @@
                             (log/infof "LANG-SUB: %s users: %s" (pr-str msg) (pr-str users))
                             (if-not (nil? msg)
                               (when-let [chan (get users user-name)]
-                                (a/sub pub language chan)
-                                (>! chan msg)
-                                (recur users history
-                                       (if-not (contains? translators language)
-                                         (try (assoc translators language (if mock-translator?
-                                                                            (mock-translator pub pub-chan language)
-                                                                            (create-translator pub pub-chan language db)))
-                                              (catch Throwable _
-                                                (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
-                                                translators))
-                                         translators)
-                                       try-clj-cookie))
+                                (if-let [translator (if mock-translator? (mock-translator pub pub-chan language)
+                                                        (try-create-translator language pub pub-chan db))]
+                                  (do (a/sub pub language chan)
+                                      (>! chan msg)
+                                      (send-translation-history chan history translator)
+                                      (recur users history
+                                             (assoc translators language translator)
+                                             try-clj-cookie))
+                                  (do (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
+                                      (recur users history translators try-clj-cookie))))
                               (log/warn "ChatRoom shutting down due to \"language-sub\" channel closing")))
 
             language-unsub ([{:keys [language user-name] :as msg}]
@@ -173,12 +194,19 @@
                            (>! pub-chan expr-msg)
                            (let [{:keys [result cookie]} (<! query-result)
                                  result-msg (msg/->chat +clojure-username+
-                                                         "clojure"
-                                                         (clojure-response (:result result))
+                                                        "clojure"
+                                                        (clojure-response (:result result))
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users history translators cookie)))
-                         (log/warn "ChatRoom shutting down due to \"clojure\" channel closing"))))))))
+                         (log/warn "ChatRoom shutting down due to \"clojure\" channel closing")))
+            ping ([{:keys [text target language user-name] :as msg}]
+                    (if-not (nil? msg)
+                      (do (when-let [target-chan (get users target)]
+                            (>! pub-chan (msg/->chat user-name language text "ping"))
+                            (>! target-chan msg))
+                          (recur users history translators try-clj-cookie))
+                      (log/warn "ChatRoom shutting down due to \"ping\" channel closing"))))))))
   
   (stop [this]
     (a/close! pub-chan)

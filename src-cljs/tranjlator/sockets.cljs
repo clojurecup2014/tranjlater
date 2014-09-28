@@ -37,7 +37,6 @@
       (let [timeout (a/timeout 15000)]
         (alt!
           timeout ([_]
-                     (println "pinging")
                      (.send ws (pr-str {:topic :ping}))
                      (recur))
           sender-ch ([msg]

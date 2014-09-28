@@ -110,7 +110,7 @@
                    (= :user-join topic) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
                    (= :user-part topic) (om/transact! app :users (fn [col] (remove (fn [x] (= x (:user-name msg))) col)))
                    (= (keyword lang) topic) (om/transact! app :translated (fn [col] (conj col msg)))
-                   (= :ping topic) (ping)
+                   (= :ping topic) (when (= (:user-name msg) (:user-name @app)) (ping))
                    (= :error topic) (do (let [name (:user-name @app)]
                                           (put! socket-ctrl "Doh")
                                           (om/update! app :sender-ch (chan))

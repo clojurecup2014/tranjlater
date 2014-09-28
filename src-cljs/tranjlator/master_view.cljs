@@ -21,6 +21,8 @@
         user-name (:user-name @app)]
     (when (not (= new-lang old-lang))
       (do
+        (when (empty? (:translated @app))
+          (om/update! app :translated (into [] (:original @app))))
         (om/update! app :reading-language new-lang)
         (when-not (nil? old-lang)
           (put! sender-ch (m/->language-unsub user-name old-lang)))
@@ -33,7 +35,7 @@
 
 (defn send-message-click [sender-ch text owner app]
   (do
-    (let [sha (-> text hash hex-string)]
+    (let [sha (-> text .toLowerCase hash hex-string)]
       (post-message sender-ch
                     (assoc (command text)
                       :user-name (:user-name @app)

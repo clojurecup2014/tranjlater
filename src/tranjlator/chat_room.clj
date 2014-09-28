@@ -8,8 +8,9 @@
 (defprotocol MsgSink
   (send-msg [this msg sender]))
 
-(defprotocol OnDisconnect
-  (on-disconnect [this user-channel]))
+(defprotocol Exists?
+  (exists? [this token]
+    "Returns a channel which will receive the result of the existence check."))
 
 (defn send-history
   [user history]
@@ -48,7 +49,7 @@
           pub (a/pub pub-chan :topic)
           user-part (chan 10)
           user-join (chan 10)
-          disconnect (chan 10)
+          exists (chan 10)
           chat (chan 10)
           initial-users (reduce (fn [acc [name chan]] (assoc acc name (sub-user pub name chan +user-default-topics+))) {} initial-users)
           initial-history (or initial-history [])]
@@ -56,7 +57,7 @@
       (a/sub pub :user-join user-join)
       (a/sub pub :user-part user-part)
       (a/sub pub :original chat)
-      (a/sub pub :disconnect disconnect)
+      (a/sub pub :exists? exists)
       
       (assoc this
         :pub-chan pub-chan
@@ -90,9 +91,12 @@
                       (recur users (conj history msg))
                       (log/warn "ChatRoom shutting down due to \"chat\" channel closing")))
 
-            disconnect ([{:keys [user-channel]}]
-                          )
-            )))))
+            exists ([{:keys [user-name response-chan] :as msg}]
+                      (if-not (nil? msg)
+                        (do (log/info "users:" (pr-str users))
+                            (>! response-chan (contains? users user-name))
+                            (recur users history))
+                        (log/warn "ChatRoom shutting down due to \"exists\" channel closing"))))))))
   
   (stop [this]
     (a/close! pub-chan)
@@ -103,9 +107,12 @@
   (send-msg [this msg sender]
     (a/put! pub-chan (assoc msg :sender sender)))
 
-  OnDisconnect
-  (on-disconnect [this user-channel]
-    (a/put! pub-chan {:topic :disconnect :channel user-channel})))
+  Exists?
+  (exists? [this user]
+    (log/info "exists check:" user)
+    (let [response-chan (chan 1)]
+      (a/put! pub-chan {:topic :exists? :user-name user :response-chan response-chan})
+      response-chan)))
 
 (defn ->chat-room
   ([]

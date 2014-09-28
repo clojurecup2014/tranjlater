@@ -24,7 +24,7 @@
   [text]
   {:topic :ping
    :text text
-   :user-name (command-body text)})
+   :target (command-body text)})
 
 (defmethod command :default
   [text]

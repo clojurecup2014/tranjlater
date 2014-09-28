@@ -25,7 +25,8 @@
                       :sender-ch (chan)
                       :socket-ctrl (chan)
                       :reading-language nil
-                      :writing-language "en"}))
+                      :writing-language "en"
+                      :connection-good true}))
 
 (defn view-picker [app owner]
   (reify

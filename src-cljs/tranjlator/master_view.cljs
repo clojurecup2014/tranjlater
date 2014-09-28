@@ -122,7 +122,7 @@
             socket-ctrl (:socket-ctrl app)]
         (make-socket listener-ch sender-ch (:user-name app) socket-ctrl)
         (go (loop []
-              (when-let [msg (<! listener-ch)]
+              (if-let [msg (<! listener-ch)]
                 (let [topic (:topic msg)
                       lang (:reading-language @app)]
                   (cond
@@ -139,8 +139,9 @@
                                           (om/update! app :listener-ch (chan))
                                           (om/update! app :dissappointed-user name)
                                           (om/update! app :user-name nil)))
-                   :default (println "RECVD:" msg "type: " (keys msg))))
-                (recur))))))
+                   :default (println "RECVD:" msg "type: " (keys msg)))
+                  (recur))
+                (om/update! app :connection-good false))))))
     om/IDidMount
     (did-mount [_]
       (let [txtbox (.getElementById js/document "text-entry")
@@ -158,8 +159,10 @@
       (let [sender-ch (:sender-ch app)]
         (dom/div {:className "col-md-12"}
                  (dom/div #js {:className "row"}
-                          (when-not (:reading-language app)
-                            (dom/div #js {:className "alert alert-success"} "Select a language to view translated messages."))
+                          (if (not (:connection-good app))
+                            (dom/div #js {:className "alert alert-danger"} "Connection lost, please refresh")
+                            (when-not (:reading-language app)
+                              (dom/div #js {:className "alert alert-success"} "Select a language to view translated messages.")))
                           (dom/div #js {:className "col-md-5 col-xs-offset-7"}
                                    (apply dom/select #js {:className "form-control"
                                                     :value (:reading-language app)

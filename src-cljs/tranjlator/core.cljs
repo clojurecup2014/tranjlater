@@ -16,7 +16,7 @@
 (enable-console-print!)
 
 (def app-state (atom {:original []
-                      :translated [sample-translation]
+                      :translated []
                       :users []
                       :user-name nil
                       :listener-ch (chan)

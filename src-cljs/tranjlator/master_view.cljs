@@ -1,8 +1,11 @@
 (ns tranjlator.master-view
-  (:require [om.core :as om :include-macros true]
+  (:require [cljs.core.async :refer [<! >!] :as a]
+            [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [tranjlator.actions :refer [check-for-enter post-message clear-text
-                                         text-entry]]))
+                                        text-entry]]
+            [tranjlator.sockets :refer [make-socket]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop go alt!]]))
 
 (defn send-message-click [sender-ch text owner app]
   (do
@@ -42,6 +45,18 @@
 
 (defn master-view [app owner]
   (reify
+    om/IWillMount
+    (will-mount [_]
+      (let [listener-ch (:listener-ch app)
+            sender-ch (:sender-ch app)]
+        (make-socket listener-ch sender-ch (:user-name app))
+        (go (loop []
+              (when-let [msg (<! listener-ch)]
+                (cond
+                 (= :original (:topic msg)) (om/transact! app :original (fn [col] (conj col msg)))
+                 (= :user-join (:topic msg)) (om/transact! app :users (fn [col] (conj col (:user-name msg []))))
+                 :default (println "RECVD:" msg "type: " (keys msg)))
+                (recur))))))
     om/IInitState
     (init-state [_]
       {:text ""})

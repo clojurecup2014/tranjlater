@@ -4,15 +4,17 @@
             [org.httpkit.server :as ws]
             [clojure.tools.reader.edn :as edn]
             
-            [tranjlator.chat-room :as chat]))
+            [tranjlator.chat-room :as chat]
+            [tranjlator.messages :as msg]))
 
 (defn create-user
-  [websocket chat-room]
+  [user-name websocket chat-room]
   (let [user-read (chan 10)
         user-write (chan 10)]
-    (log/info "new websocket")
+    (log/info "new websocket:" user-name)
     (ws/on-receive websocket #(a/put! user-read %))
     (ws/on-close websocket (fn [& _]
+                             (chat/send-msg chat-room (msg/->user-part user-name) user-write)
                              (a/close! user-read)
                              (a/close! user-write)))
 
@@ -28,4 +30,6 @@
         (if-not (nil? msg)
           (do (ws/send! websocket (pr-str (dissoc msg :sender)))
               (recur))
-          (ws/close websocket))))))
+          (ws/close websocket))))
+
+    (chat/send-msg chat-room (msg/->user-join user-name) user-write)))

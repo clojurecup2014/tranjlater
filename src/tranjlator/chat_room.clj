@@ -3,6 +3,8 @@
   (:require [clojure.core.async :as a :refer [go go-loop chan <! >!]]
             [tranjlator.messages :as msg]
             [tranjlator.protocols :as p]
+            [tranjlator.try-clojure :as try]
+            [tranjlator.bing :as xlate]
             [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]))
 
@@ -29,23 +31,42 @@
 
 
 (defn mock-translator
-  [language]
-  (map #(merge % {:topic language
-                  :language language
-                  :content (format "This will be translated to: %s!" (pr-str language) )
-                  :content-sha "sha!"
-                  :original-sha "some other sha!"
-                  :translated-sha "sha!"})))
-
-(defn create-translator
   [pub pub-chan language]
-  (let [translator-chan (chan 1 (mock-translator language))]
+  (let [translator-chan (chan 1 (map #(merge % {:topic language
+                                                :language language
+                                                :content (format "This will be translated to: %s!" (pr-str language) )
+                                                :content-sha "sha!"
+                                                :original-sha "some other sha!"
+                                                :translated-sha "sha!"})))]
     (a/sub pub :original translator-chan)
     (a/pipe translator-chan pub-chan)
     translator-chan))
 
+(def ^:const +clojure-username+ "clojure")
+
+(defn clojure-request
+  [command form]
+  (str command " " form))
+
+(defn clojure-response
+  [result]
+  (str ";; => " result))
+
+(defn create-translator
+  [pub pub-chan language db]
+  (assert (keyword? language) "Invalid language specifier")
+  (log/infof "Creating translator for lang: %s" (pr-str language))
+  (let [translation-msg-chan (chan 1 (map #(do (log/info "XLATED:" (pr-str %))
+                                               %)))
+        translator (-> (xlate/->translator language translation-msg-chan)
+                       (assoc :db db)
+                       component/start)]
+    (a/sub pub :original (:ctrl-chan translator))
+    (a/pipe translation-msg-chan pub-chan)
+    translator))
+
 (defrecord ChatRoom
-    [initial-users initial-history pub-chan process-chan]
+    [initial-users initial-history pub-chan process-chan mock-translator? db]
 
   component/Lifecycle
   (start [this]
@@ -55,6 +76,7 @@
           user-join (chan 10)
           exists (chan 10)
           chat (chan 10)
+          clojure (chan 10)
           language-sub (chan 10)
           language-unsub (chan 10)
           initial-history (or initial-history [])]
@@ -63,7 +85,8 @@
       (a/sub pub :user-part user-part)
       (a/sub pub :original chat)
       (a/sub pub :exists? exists)
-
+      (a/sub pub :clojure clojure)
+      
       (a/sub pub :language-sub language-sub)
       (a/sub pub :language-unsub language-unsub)
 
@@ -75,7 +98,10 @@
         :initial-history initial-history
         :initial-users initial-users
         :process-chan
-        (go-loop [users initial-users, history initial-history, translators {}]
+        (go-loop [users (assoc initial-users +clojure-username+ (chan 1 (remove (constantly true))))
+                  history initial-history,
+                  translators {},
+                  try-clj-cookie nil]
           (a/alt!
             user-join ([{:keys [sender user-name] :as msg}]
                          (log/infof "JOIN: %s" (pr-str msg))
@@ -84,7 +110,8 @@
                                (send-user-list sender users)
                                (send-history sender history)
                                (sub-user pub user-name sender +user-default-topics+)
-                               (recur (assoc users user-name sender) history translators))
+                               (recur (assoc users user-name sender) history translators
+                                      try-clj-cookie))
                            (log/warn "ChatRoom shutting down due to \"user-join\" channel closing")))
 
             user-part ([{:keys [user-name] :as msg}]
@@ -93,13 +120,14 @@
                            (do (when-let [chan (get users user-name)]
                                  (doseq [t +user-default-topics+]
                                    (a/unsub pub t chan)))
-                               (recur (dissoc users user-name) history translators))
+                               (recur (dissoc users user-name) history translators
+                                      try-clj-cookie))
                            (log/warn "ChatRoom shutting down due to \"user-leave\" channel closing")))
 
             chat ([msg]
                     (log/infof "CHAT: %s" (pr-str msg))
                     (if-not (nil? msg)
-                      (recur users (conj history msg) translators)
+                      (recur users (conj history msg) translators try-clj-cookie)
                       (log/warn "ChatRoom shutting down due to \"chat\" channel closing")))
 
             language-sub ([{:keys [language user-name] :as msg}]
@@ -108,9 +136,16 @@
                               (when-let [chan (get users user-name)]
                                 (a/sub pub language chan)
                                 (>! chan msg)
-                                (recur users history (if-not (contains? translators language)
-                                                       (assoc translators language (create-translator pub pub-chan language))
-                                                       translators)))
+                                (recur users history
+                                       (if-not (contains? translators language)
+                                         (try (assoc translators language (if mock-translator?
+                                                                            (mock-translator pub pub-chan language)
+                                                                            (create-translator pub pub-chan language db)))
+                                              (catch Throwable _
+                                                (>! chan (msg/->error-msg (format "Could not create translator for %s" (pr-str language))))
+                                                translators))
+                                         translators)
+                                       try-clj-cookie))
                               (log/warn "ChatRoom shutting down due to \"language-sub\" channel closing")))
 
             language-unsub ([{:keys [language user-name] :as msg}]
@@ -119,15 +154,31 @@
                                 (when-let [chan (get users user-name)]
                                   (a/unsub pub language chan)
                                   (>! chan msg)
-                                  (recur users history translators))
+                                  (recur users history translators try-clj-cookie))
                                 (log/warn "ChatRoom shutting down due to \"language-unsub\" channel closing")))
 
             exists ([{:keys [user-name response-chan] :as msg}]
                       (if-not (nil? msg)
                         (do (log/info "users:" (pr-str users))
                             (>! response-chan (contains? users user-name))
-                            (recur users history translators))
-                        (log/warn "ChatRoom shutting down due to \"exists\" channel closing"))))))))
+                            (recur users history translators try-clj-cookie))
+                        (log/warn "ChatRoom shutting down due to \"exists\" channel closing")))
+
+            clojure ([{:keys [text body user-name] :as msg}]
+                       (if-not (nil? msg)
+                         (let [expr-msg (msg/->chat user-name "clojure"
+                                                    text
+                                                    "foo")
+                               query-result (try/query body try-clj-cookie)]
+                           (>! pub-chan expr-msg)
+                           (let [{:keys [result cookie]} (<! query-result)
+                                 result-msg (msg/->chat +clojure-username+
+                                                         "clojure"
+                                                         (clojure-response (:result result))
+                                                        "foo")]
+                             (>! pub-chan result-msg)
+                             (recur users history translators cookie)))
+                         (log/warn "ChatRoom shutting down due to \"clojure\" channel closing"))))))))
   
   (stop [this]
     (a/close! pub-chan)
@@ -149,7 +200,8 @@
   ([]
      (->chat-room []))
   ([history]
-     (->ChatRoom nil history nil nil)))
+     (component/using (->ChatRoom nil history nil nil nil nil)
+                      [:db])))
 
 (comment
   (require '[tranjlator.messages :refer :all])
@@ -162,8 +214,5 @@
   (chat chat-room (->chat "foo" "foo" "foo" "user-1"))
 
   (join chat-room "brian" brian)
-  (join chat-room "bob" bob)
-
-  
-  
+  (join chat-room "bob" bob)  
   )

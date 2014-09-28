@@ -7,10 +7,11 @@
             [com.stuartsierra.component :as component]
             
             [tranjlator.chat-room :refer [->chat-room]]
-            [tranjlator.user :refer [create-user]])
+            [tranjlator.user :refer [create-user]]
+            [tranjlator.datomic :refer [->db]])
   (:gen-class))
 
-(def +chat-room+ nil)
+(def +system+ nil)
 
 (defroutes routes
   (GET "/" [] (resp/resource-response "public/html/index.html"))
@@ -19,9 +20,15 @@
        (with-channel req websocket
          (if-not (ws/websocket? websocket)
            (ws/send! websocket "This is not a websocket! Go away!")
-           (create-user user-name websocket +chat-room+)))))
+           (create-user user-name websocket (:chat-room +system+))))))
+
+(defn system
+  [db-uri bing-creds]
+  (component/system-map
+   :db (->db)
+   :chat-room (->chat-room)))
 
 (defn -main
   [& [port]]
-  (alter-var-root #'+chat-room+ (constantly (-> (->chat-room) component/start)))
+  (alter-var-root #'+system+ (constantly (-> (system nil nil) component/start-system)))
   (run-server routes {:port (or port 80)}))

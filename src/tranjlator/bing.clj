@@ -9,9 +9,10 @@
             [clojure.core.async.impl.protocols :as impl]
             [tranjlator.datomic :refer [->db]]
             [datomic.api :as d :refer [db q]]
-            [pandect.core :refer [sha512-bytes]]
-            [clojure.string :refer [lower-case]]))
-                                                  
+            [pandect.core :refer [sha512-bytes sha512]]
+            [clojure.string :refer [lower-case]]
+            [tranjlator.messages :refer [->translation]]))
+                                                          
 (def +creds+
   {:client-id "clojure-cup-tranjlator"
    :client-secret "yEyqkowDUzg2mRNDky0PsTIaby3iatg1XILEeKYKB9Y="})
@@ -20,9 +21,13 @@
 (defn now [] (System/currentTimeMillis))
 (def sec->msec (partial * 1000))
 
-(defn sha
+(defn sha-bytes
   [s]
   (sha512-bytes ((fnil lower-case "") s)))
+
+(defn sha-hex
+  [^bytes b]
+  (javax.xml.bind.DatatypeConverter/printHexBinary b))
 
 (defn expired?
   [{:keys [expires] :as token}]
@@ -32,15 +37,16 @@
   [conn sha from to]
   (go
     (log/info "querying datomic" [sha from to])
-    (let [res (q '[:find ?text
+    (let [res (q '[:find ?text ?org-sha ?trans-sha
                    :in $ ?sha ?from ?to
                    :where
-                   [?o :original/sha      ?o-sha]
+                   [?o :original/sha    ?org-sha]
                    [?o :original/language  ?from]
                    [?o :original/translation  ?e]
                    [?e :translation/language ?to]
-                   [?e :translation/text   ?text] 
-                   [(java.util.Arrays/equals ^bytes ?sha ^bytes ?o-sha)]]
+                   [?e :translation/text   ?text]
+                   [?e :translation/sha ?trans-sha]
+                   [(java.util.Arrays/equals ^bytes ?sha ^bytes ?org-sha)]]
                  (db conn) sha from to)]
       (log/info "datomic sez:" res)
       (ffirst res))))
@@ -72,15 +78,15 @@
 
 (defn translation-tx
   "assertion of facts regarding text's translation"
-  [text from to translation]
+  [org-text org-sha from to trans-text trans-sha]
   [[:db/add (d/tempid :db.part/user -1) :original/language from]
-   [:db/add (d/tempid :db.part/user -1) :original/text     text]
-   [:db/add (d/tempid :db.part/user -1) :original/sha (sha text)]
+   [:db/add (d/tempid :db.part/user -1) :original/text org-text]
+   [:db/add (d/tempid :db.part/user -1) :original/sha   org-sha]
    [:db/add (d/tempid :db.part/user -1) :original/translation (d/tempid :db.part/user -2)]
                                                                                                        
    [:db/add (d/tempid :db.part/user -2) :translation/language to]
-   [:db/add (d/tempid :db.part/user -2) :translation/text translation]
-   [:db/add (d/tempid :db.part/user -2) :translation/sha (sha translation)]])
+   [:db/add (d/tempid :db.part/user -2) :translation/text trans-text]
+   [:db/add (d/tempid :db.part/user -2) :translation/sha  trans-sha]])
 
 (defn parse-translation
   [{:keys [status body] :as res}]
@@ -96,23 +102,26 @@
      (log/info "entering translate!")
      (let [result-chan (chan 1)]
        (go
-         (if-let [translation (<! (db-lookup-translation (:conn db) (sha text) from to))]
-           (do (log/info "datomic sez:" translation)
-               (>! result-chan translation))
-           (do
-             (log/info "gotta lookup")
-             (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
-                       {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
-                                                                   (:token (<! access-token))
-                                                                   access-token))}
-                        :query-params {:text text
-                                       :from (name from)
-                                       :to   (name to)}}
-                       #(let [trans (parse-translation %)
-                              _ (log/info "translation:" trans)]
-                          (a/put! result-chan trans)
-                          (log/info "now transzct:" (translation-tx text from to trans))
-                          @(d/transact (:conn db) (translation-tx text from to trans)))))))
+         (let [text-sha (sha-bytes text)]
+           (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) text-sha from to))]
+             (do (log/info "datomic sez:" resp)
+                 (>! result-chan resp))
+             (do
+               (log/info "gotta lookup")
+               (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
+                         {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
+                                                                     (:token (<! access-token))
+                                                                     access-token))}
+                          :query-params {:text text
+                                         :from (name from)
+                                         :to   (name to)}}
+                         #(let [trans (parse-translation %)
+                                trans-sha (sha-bytes trans)
+                                _ (log/info "translation:" [trans trans-sha])]
+                            (log/info "transacting:" (translation-tx text text-sha from to trans trans-sha))
+                            @(d/transact (:conn db) (translation-tx text text-sha from to trans trans-sha))
+                            (a/put! result-chan [trans text-sha trans-sha])
+))))))
        result-chan)))
 
 
@@ -127,16 +136,22 @@
         :ctrl-chan ctrl-chan
         :work-chan (go-loop [token (<! (access-token api-creds))]
                      (when-some [msg (<! ctrl-chan)]
-                       (let [token (if (expired? token) (<! (access-token api-creds)) token)]
-                         (>! out-chan (<! (translate! (:token token)
-                                                      (:content msg)
-                                                      (:language msg)
-                                                      (:language this)
-                                                      db)))
+                       (let [token (if (expired? token) (<! (access-token api-creds)) token)
+                             [trans org-sha trans-sha]  (<! (translate! (:token token)
+                                                                        (:content msg)
+                                                                        (keyword (:language msg))
+                                                                        (:language this)
+                                                                        db))]
+                         (>! out-chan (->translation language
+                                                     trans
+                                                     (doto (sha-hex   org-sha) (->> pr-str (log/info "Origin-SHA:")))
+                                                     (doto (sha-hex trans-sha) (->> pr-str (log/info "trans-SHA:")))
+                                                     (:user-name msg)))
                          (recur token)))))))
 
   (stop [this]
     (a/close! ctrl-chan)
+    (a/close! out-chan)
     (a/<!!    work-chan)
     (dissoc this :ctrl-chan :work-chan :out-chan)))
 
@@ -146,6 +161,8 @@
   ([api-creds language out-chan]
      (component/using (->Translator api-creds language nil nil out-chan nil)
                       [:db])))
+                              
+
 
 ;; unused
 (def +langs+

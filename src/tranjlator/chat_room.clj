@@ -50,7 +50,7 @@
 
 (defn clojure-response
   [result]
-  (str ";; => " result))
+  (str ";; => " (if (:error result) (:message result) (:result result))))
 
 (defn create-translator
   [pub pub-chan language db]
@@ -195,7 +195,7 @@
                            (let [{:keys [result cookie]} (<! query-result)
                                  result-msg (msg/->chat +clojure-username+
                                                         "clojure"
-                                                        (clojure-response (:result result))
+                                                        (clojure-response result)
                                                         "foo")]
                              (>! pub-chan result-msg)
                              (recur users history translators cookie)))

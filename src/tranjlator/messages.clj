@@ -39,6 +39,11 @@
   {:topic :error
    :msg msg})
 
+(defn ->clojure
+  [form]
+  {:topic :clojure
+   :form form})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Server -> Client
 

@@ -106,3 +106,39 @@
         (a/alt!!
           (:chan user) ([v] (is false (format "user recvd: %s. Should not have recvd anything." (pr-str v))))
           timeout ([_] (is true)))))))
+
+(deftest test-clj-evaluation
+  (testing "When a user sends a clojure form all users see the form and the result as chat."
+    (let [[user1 user2 user3 :as users] (make-users 3)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users users)}) component/start)
+          form "(+ 1 1)"
+          result "2"]
+
+      (p/send-msg chat-room (msg/->clojure form) (:chan user1))
+
+      (are [x] (= (:content x) form)
+           (a/<!! (:chan user1))
+           (a/<!! (:chan user2))
+           (a/<!! (:chan user3)))
+
+      (are [x] (= (:content x) result)
+           (a/<!! (:chan user1))
+           (a/<!! (:chan user2))
+           (a/<!! (:chan user3)))))
+
+  (testing "There is 1 try-clojure session per chat-room."
+    (let [[user] (make-users 1)
+          chat-room (-> (map->ChatRoom {:initial-users (->initial-users [user])})
+                        component/start)
+          form1 "(def foo (+ 1 1))"
+          form2 "foo"
+          value "2"]
+
+      (p/send-msg chat-room (msg/->clojure form1) (:chan user))
+      (p/send-msg chat-room (msg/->clojure form2) (:chan user))
+
+      (a/<!! (:chan user)) ;; drop broadcast of form1
+      (a/<!! (:chan user)) ;; drop result of form1
+
+      (a/<!! (:chan user)) ;; drop broadcast of form2
+      (is (= value (:content (a/<!! (:chan user))))))))

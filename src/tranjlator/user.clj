@@ -9,7 +9,7 @@
 
 (defn create-user
   [user-name websocket chat-room]
-  (go (let [user-read (chan 10 (remove #(= :ping (:topic %))))
+  (go (let [user-read (chan 10 (remove #(= :keep-alive (:topic %))))
             user-write (chan 10)]
 
         (if (<! (p/exists? chat-room user-name))

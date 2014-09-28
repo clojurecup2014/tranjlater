@@ -46,7 +46,7 @@
       (let [timeout (a/timeout 15000)]
         (alt!
           timeout ([_]
-                     (.send ws (pr-str {:topic :ping}))
+                     (.send ws (pr-str {:topic :keep-alive}))
                      (recur))
           sender-ch ([msg]
                        (if-not (nil? msg)

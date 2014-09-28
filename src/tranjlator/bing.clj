@@ -53,7 +53,7 @@
                    [?e :translation/sha ?trans-sha]
                    [(java.util.Arrays/equals ^bytes ?sha ^bytes ?org-sha)]]
                  (db conn) sha from to)]
-      (log/info "datomic query response:" res)
+      (log/info "Datomic query response:" res)
       (first res))))
 
 ;; Bing API
@@ -114,10 +114,10 @@
                       :server-sha (-> text sha-bytes bin->hex)}))
          (let [text-sha (hex->bin text-sha)]
            (if-let [[trans org-sha trans-sha :as resp] (<! (db-lookup-translation (:conn db) text-sha from to))]
-             (do (log/info "datomic translation:" resp)
+             (do (log/info "Datomic translation:" resp)
                  (>! result-chan  resp))
              (do
-               (log/info "gotta lookup")
+               (log/info "Querying Microsoft translation service..")
                (http/get "http://api.microsofttranslator.com/v2/Http.svc/Translate"
                          {:headers {"Authorization" (str "Bearer " (if (extends? impl/ReadPort (type access-token))
                                                                      (:token (<! access-token))

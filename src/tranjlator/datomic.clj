@@ -5,7 +5,7 @@
             [datomic.api :as d :refer [db q]]))
 
 (def +schema+ "schema.dtm")
-(def +uri+ "datomic:mem://datomic:4334")
+(def +uri+ "datomic:free://datomic:4334/tranjlator")
 
 (defn read-file
   [f]

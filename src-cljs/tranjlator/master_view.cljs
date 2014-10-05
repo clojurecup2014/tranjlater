@@ -182,7 +182,8 @@
             [:div {:class "col-md-8"}
              [:input {:class "form-control" :type "text"
                       :value text :id "text-entry"
-                      :onKeyUp (fn [e] (check-for-enter e owner state app send-message-click))
+                      :onKeyUp #(when (= (.-key %) "Enter")
+                                  (send-message-click sender-ch text owner app))
                       :onChange #(text-entry % owner state)}]]
             [:div {:class "col-md-1"}
              [:button {:type "button" :class "btn btn-primary"

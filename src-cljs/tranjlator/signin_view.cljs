@@ -40,7 +40,8 @@
              [:div
               [:input {:class "form-control col-md-8" :type "text"
                        :value text :id "user-name"
-                       :onKeyUp (fn [e] (check-for-enter e owner state app login-click))
+                       :onKeyUp #(when (= (.-key %) "Enter")
+                                  (login-click sender-ch text owner app))
                        :onChange (fn [e] (text-entry e owner state))}]]
              [:div
               [:button {:type "button" :class "btn btn-primary col-md-3 col-md-offset-4"

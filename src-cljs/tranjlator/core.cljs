@@ -3,6 +3,7 @@
             [om.dom :as dom :include-macros true]
             [chord.client :refer [ws-ch]]
             [cljs.core.async :refer [chan <! >! put!] :as a]
+            [sablono.core :as html :refer-macros [html]]
             [tranjlator.master-view :refer [master-view]]
             [tranjlator.signin-view :refer [signin-view]]
             [tranjlator.sockets :as s :refer
@@ -32,12 +33,13 @@
   (reify
     om/IRender
     (render [_]
-      (dom/div #js {:className "container"}
-               (dom/div {:className "row"}
-                        (dom/h2 nil "Tranjlator"))
-               (if (empty? (:user-name app))
-                 (om/build signin-view app)
-                 (om/build master-view app))))))
+      (html
+       [:div {:class "container"}
+        [:div  {:class "row"}
+         [:h2 "Tranjlator"]]
+        (if (empty? (:user-name app))
+          (om/build signin-view app)
+          (om/build master-view app))]))))
 
 (om/root
  view-picker

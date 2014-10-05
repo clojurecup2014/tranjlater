@@ -10,3 +10,4 @@ pom.xml.asc
 /resources/public/js/main.js
 deployment/hosts
 deployment/.vault_password.txt
+/resources/public/out

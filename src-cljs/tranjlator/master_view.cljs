@@ -1,7 +1,7 @@
 (ns tranjlator.master-view
   (:require [cljs.core.async :refer [<! >! put! timeout chan] :as a]
             [om.core :as om :include-macros true]
-            [om.dom :as dom :include-macros true]
+            [sablono.core :as html :refer-macros [html]]
             [tranjlator.actions :refer [check-for-enter post-message clear-text
                                         text-entry]]
             [tranjlator.sockets :refer [make-socket]]
@@ -57,15 +57,16 @@
   (reify
     om/IRender
     (render [this]
-      (dom/div #js {:className "col-md-2"}
-               (dom/div #js {:className "panel panel-info"}
-                        (dom/div #js {:className "panel-heading"}
-                                 (dom/h4 #js {:className "panel-title"}
-                                         (dom/span #js {:className "glyphicon glyphicon-user"})
-                                         " Users"))
-                        (dom/div #js {:className "panel-body"}
-                                 (apply dom/ul nil
-                                        (map (fn [item] (dom/li nil item)) (sort app)))))))))
+      (html
+       [:div {:class "col-md-2"}
+        [:div {:class "panel panel-info"}
+         [:div {:class "panel-heading"}
+          [:h4 {:class "panel-title"}
+           [:span {:class "glyphicon glyphicon-user"}]
+           " Users"]]
+         [:div {:class "panel-body"}
+          [:ul
+           (map (fn [item] [:li item]) (sort app))]]]]))))
 
 (defn format-chat [{:keys [user-name content]}]
   (str user-name ": " content ))
@@ -74,16 +75,16 @@
   (reify
     om/IRenderState
     (render-state [this state]
-      (dom/div #js {:className "col-md-5"}
-               (dom/div #js {:className "panel panel-primary"}
-                        (dom/div #js {:className "panel-heading"}
-                                 (dom/h4 #js {:className "panel-title"}
-                                         (dom/span #js {:className "glyphicon glyphicon-globe"})
-                                         " Original"))
-                        (dom/div #js {:className "panel-body chat" :id "original-panel"}
-                                 (apply dom/ul #js {:className "list-group"}
-                                        (map (fn [item] (dom/li #js {:className "list-group-item"} (format-chat item)
-                                                               (dom/span #js {:className "badge"} (name (:language item))))) app))))))
+      (html
+       [:div {:class "col-md-5"}
+        [:div {:class "panel panel-primary"}
+         [:div {:class "panel-heading"}
+          [:h4 {:class "panel-title"}
+           [:span {:class "glyphicon glyphicon-globe"}] " Original"]]
+         [:div {:class "panel-body chat" :id "original-panel"}
+          [:ul {:class "list-group"}
+           (map (fn [item] [:li {:class "list-group-item"} (format-chat item)
+                           [:span {:class "badge"} (name (:language item))]]) app)]]]]))
     om/IDidUpdate
     (did-update [_ _ _]
       (let [panel (.getElementById js/document "original-panel")]
@@ -93,21 +94,22 @@
   (reify
     om/IRenderState
     (render-state [this state]
-      (dom/div #js {:className "col-md-5"}
-               (dom/div #js {:className "panel panel-primary"}
-                        (dom/div #js {:className "panel-heading"}
-                                 (dom/h4 #js {:className "panel-title"}
-                                         (dom/span #js {:className "glyphicon glyphicon-home"})
-                                         " Translated"))
-                        (dom/div #js {:className "panel-body chat" :id "translated-panel"}
-                                 (apply dom/ul #js {:className "list-group"}
-                                        (map (fn [item]
-                                               (let [new-lang (:reading-language app)
-                                                     valid? (fn [msg]
-                                                              (= (:topic msg) (keyword new-lang)))]
-                                                 (dom/li #js {:className
-                                                              (if (valid? item) "list-group-item" "out-of-date list-group-item")}
-                                                         (format-chat item)))) (:translated app)))))))
+      (html
+       [:div {:class "col-md-5"}
+        [:div  {:class "panel panel-primary"}
+         [:div {:class "panel-heading"}
+          [:h4 {:class "panel-title"}
+           [:span {:class "glyphicon glyphicon-home"}]
+           " Translated"]]
+         [:div {:class "panel-body chat" :id "translated-panel"}
+          [:ul {:class "list-group"}
+                 (map (fn [item]
+                        (let [new-lang (:reading-language app)
+                              valid? (fn [msg]
+                                       (= (:topic msg) (keyword new-lang)))]
+                          [:li {:class
+                                (if (valid? item) "list-group-item" "out-of-date list-group-item")}
+                           (format-chat item)])) (:translated app))]]]]))
     om/IDidUpdate
     (did-update [_ _ _]
       (let [panel (.getElementById js/document "translated-panel")]
@@ -150,42 +152,42 @@
         (go
          (<! (timeout (* 30 1000)))
          (set! (.-className msg) (+ (.-className msg) " hidden")))))
-
     om/IInitState
     (init-state [_]
       {:text ""})
     om/IRenderState
     (render-state [this {:keys [text] :as state}]
       (let [sender-ch (:sender-ch app)]
-        (dom/div {:className "col-md-12"}
-                 (dom/div #js {:className "row"}
-                          (if (not (:connection-good app))
-                            (dom/div #js {:className "alert alert-danger"} "Connection lost, please refresh")
-                            (when-not (:reading-language app)
-                              (dom/div #js {:className "alert alert-success"} "Select a language to view translated messages.")))
-                          (dom/div #js {:className "col-md-5 col-xs-offset-7"}
-                                   (apply dom/select #js {:className "form-control"
-                                                    :value (:reading-language app)
-                                                          :onChange (fn [e] (reading-language-change e sender-ch app))}
-                                          (map (fn [lang] (dom/option #js {:value (:code lang)} (:name lang))) (cons {:code nil :name ""} +langs+))))
-                          (om/build users-view (:users app))
-                          (om/build original-view (:original app))
-                          (om/build translated-view app)
-                          (dom/div #js {:className "col-md-12 table"}
-                                   (dom/div #js {:className "col-md-3"}
-                                            (apply dom/select #js {:className "form-control"
-                                                             :value (:writing-language app)
-                                                             :onChange (fn [e] (writing-language-change e sender-ch app))}
-                                                        (map (fn [lang] (dom/option #js {:value (:code lang)} (:name lang))) +langs+)))
-                                   (dom/div #js {:className "col-md-8"}
-                                            (dom/input #js {:className "form-control" :type "text"
-                                                            :value text :id "text-entry"
-                                                            :onKeyUp (fn [e] (check-for-enter e owner state app send-message-click))
-                                                            :onChange #(text-entry % owner state)}))
-                                   (dom/div #js {:className "col-md-1"}
-                                            (dom/button #js {:type "button" :className "btn btn-primary"
-                                                             :onClick (fn [e] (send-message-click sender-ch text owner app))}
-                                                        (dom/span #js {:className "glyphicon glyphicon-leaf"}) " Enter"))))
-                 (dom/div #js {:className "row"}
-                          (dom/div #js {:className "alert alert-warning" :id "timeout-alert"}
-                                   "Want to type in a different language? Use the dropdown to tell us which one. Rather code? Use /clojure or @clojure to evaluate forms.")))))))
+        (html
+         [:div
+          [:div {:class "row"}
+           (if (not (:connection-good app))
+             [:div {:class "alert alert-danger"} "Connection lost, please refresh"]
+             (when-not (:reading-language app)
+               [:div {:class "alert alert-success"} "Select a language to view translated messages."]))
+           [:div {:class "col-md-5 col-xs-offset-7"}
+            [:select {:class "form-control"
+                                    :value (:reading-language app)
+                      :onChange (fn [e] (reading-language-change e sender-ch app))}
+             (map (fn [lang] [:option {:value (:code lang)} (:name lang)]) (cons {:code nil :name ""} +langs+))]]
+           (om/build users-view (:users app))
+           (om/build original-view (:original app))
+           (om/build translated-view app)
+           [:div {:class "col-md-12 table"}
+            [:div {:class "col-md-3"}
+             [:select {:class "form-control"
+                       :value (:writing-language app)
+                       :onChange (fn [e] (writing-language-change e sender-ch app))}
+              (map (fn [lang] [:option [:option  {:value (:code lang)} (:name lang)]]) +langs+)]]
+            [:div {:class "col-md-8"}
+             [:input {:class "form-control" :type "text"
+                      :value text :id "text-entry"
+                      :onKeyUp (fn [e] (check-for-enter e owner state app send-message-click))
+                      :onChange #(text-entry % owner state)}]]
+            [:div {:class "col-md-1"}
+             [:button {:type "button" :class "btn btn-primary"
+                       :onClick (fn [e] (send-message-click sender-ch text owner app))}
+              [:span {:class "glyphicon glyphicon-leaf"}] " Enter"]]]]
+          [:div {:class "row"}
+           [:div {:class "alert alert-warning" :id "timeout-alert"}
+            "Want to type in a different language? Use the dropdown to tell us which one. Rather code? Use /clojure or @clojure to evaluate forms."]]])))))
